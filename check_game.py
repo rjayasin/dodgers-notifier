@@ -46,12 +46,10 @@ def format_message(game: dict) -> str:
     game_time_utc = datetime.fromisoformat(game["gameDate"].replace("Z", "+00:00"))
     game_time_pt = game_time_utc.astimezone(PT)
     start_time = game_time_pt.strftime("%-I:%M %p PT")
-    venue = game.get("venue", {}).get("name", "Dodger Stadium")
     return (
-        f"Dodgers home game today!\n"
-        f"vs. {opponent}\n"
-        f"First pitch: {start_time}\n"
-        f"{venue}"
+        f"⚾ Dodgers home game today!\n"
+        f"🆚 {opponent}\n"
+        f"⏰ First pitch: {start_time}"
     )
 
 
