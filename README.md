@@ -101,15 +101,6 @@ python check_game.py
 
 ---
 
-## Keeping the Workflow Active
-
-GitHub automatically **disables scheduled workflows after 60 days of repository inactivity**. To prevent this:
-
-- Periodically trigger the workflow manually from the Actions tab (this resets the inactivity clock).
-- Or make any small commit to the repo (e.g. updating this README).
-
-A good habit: trigger it manually once at the start of each Dodgers season.
-
 ---
 
 ## Customization
