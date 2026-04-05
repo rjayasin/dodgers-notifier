@@ -1,0 +1,24 @@
+name: Dodgers Home Game Check
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # 7:00 AM PDT (UTC-7) / 6:00 AM PST (UTC-8)
+  workflow_dispatch:       # Allows manual trigger from the Actions tab
+
+jobs:
+  check-game:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check for Dodgers home game
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SMS_ADDRESS: ${{ secrets.SMS_ADDRESS }}
+        run: python check_game.py
