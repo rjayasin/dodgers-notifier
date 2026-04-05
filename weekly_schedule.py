@@ -53,16 +53,38 @@ def format_game_line(game: dict) -> str:
     return f"{day}  🆚 {opponent}  ⏰ {start_time}"
 
 
-def format_message(start_date: str, end_date: str, games: list[dict]) -> str:
+SMS_CHUNK_LIMIT = 140  # UCS-2 limit (emojis) is 70 chars/segment; gateways often truncate
+                       # at 160 bytes. 140 is a safe budget that fits in a single segment.
+
+
+def build_chunks(start_date: str, end_date: str, games: list[dict]) -> list[str]:
+    """Split the weekly summary into SMS-safe chunks of at most SMS_CHUNK_LIMIT chars."""
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(end_date, "%Y-%m-%d")
-    header = f"⚾ Dodgers schedule ({start.strftime('%b %-d')}–{end.strftime('%-d')})\n"
+    header = f"⚾ Dodgers home games ({start.strftime('%b %-d')}–{end.strftime('%-d')})"
 
     if not games:
-        return header + "\nNo home games this week."
+        return [f"{header}\n\nNo home games this week."]
 
-    lines = [format_game_line(g) for g in games]
-    return header + "\n" + "\n".join(lines)
+    game_lines = [format_game_line(g) for g in games]
+
+    chunks = []
+    current = header
+    for line in game_lines:
+        candidate = current + "\n" + line
+        if len(candidate) > SMS_CHUNK_LIMIT and current != header:
+            chunks.append(current)
+            current = line
+        else:
+            current = candidate
+    chunks.append(current)
+
+    # Label multi-part messages so they arrive in order (e.g. "1/3", "2/3")
+    if len(chunks) > 1:
+        total = len(chunks)
+        chunks = [f"({i + 1}/{total}) {chunk}" for i, chunk in enumerate(chunks)]
+
+    return chunks
 
 
 def send_sms(body: str, gmail_address: str, app_password: str, sms_address: str) -> None:
@@ -94,10 +116,11 @@ def main() -> None:
         sys.exit(1)
 
     games = parse_home_games(data)
-    message = format_message(start_date, end_date, games)
-    print(f"Sending weekly summary:\n{message}")
-    send_sms(message, gmail_address, app_password, sms_address)
-    print("SMS sent.")
+    chunks = build_chunks(start_date, end_date, games)
+    for i, chunk in enumerate(chunks):
+        print(f"Sending SMS {i + 1}/{len(chunks)}:\n{chunk}")
+        send_sms(chunk, gmail_address, app_password, sms_address)
+    print(f"Sent {len(chunks)} SMS.")
 
 
 if __name__ == "__main__":
