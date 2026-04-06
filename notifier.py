@@ -73,9 +73,8 @@ def find_home_games(data: dict) -> list[dict]:
 
 def format_message(game: dict) -> str:
     opponent = game["teams"]["away"]["team"]["name"]
-    game_time_utc = datetime.fromisoformat(game["gameDate"].replace("Z", "+00:00"))
-    game_time_pt = game_time_utc.astimezone(PT)
-    start_time = game_time_pt.strftime("%-I:%M %p PT")
+    game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
+    start_time = game_time.strftime("%-I:%M %p PT")
     return (
         f"⚾ Dodgers home game today!\n"
         f"🆚 {opponent}\n"
@@ -131,10 +130,9 @@ def parse_home_games(data: dict) -> list[dict]:
 
 def format_game_line(game: dict) -> str:
     opponent = game["teams"]["away"]["team"]["name"]
-    game_time_utc = datetime.fromisoformat(game["gameDate"].replace("Z", "+00:00"))
-    game_time_pt = game_time_utc.astimezone(PT)
-    day = game_time_pt.strftime("%a %-m/%-d")
-    start_time = game_time_pt.strftime("%-I:%M %p PT")
+    game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
+    day = game_time.strftime("%a %-m/%-d")
+    start_time = game_time.strftime("%-I:%M %p PT")
     return f"{day}  🆚 {opponent}  ⏰ {start_time}"
 
 
