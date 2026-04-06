@@ -31,18 +31,14 @@ jobs:
 
           echo "No real commits in the last 45 days — refreshing keep-alive commit."
 
-          # Remove all consecutive keep-alive commits at the tip of the branch.
-          # This prevents stacking empty commits month after month.
-          DROP_COUNT=0
-          while [ "$(git log -1 --format=%s)" = "$KEEP_ALIVE_MSG" ]; do
-            DROP_COUNT=$((DROP_COUNT + 1))
+          # If the latest commit is a previous keep-alive, remove it to avoid stacking them
+          LAST_MSG=$(git log -1 --format=%s)
+          if [ "$LAST_MSG" = "$KEEP_ALIVE_MSG" ]; then
+            echo "Removing previous keep-alive commit."
             git reset --soft HEAD~1
-          done
-
-          if [ "$DROP_COUNT" -gt 0 ]; then
-            echo "Removed $DROP_COUNT previous keep-alive commit(s)."
+            git commit --allow-empty -m "$KEEP_ALIVE_MSG"
+          else
+            git commit --allow-empty -m "$KEEP_ALIVE_MSG"
           fi
-
-          git commit --allow-empty -m "$KEEP_ALIVE_MSG"
 
           git push --force-with-lease
