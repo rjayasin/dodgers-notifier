@@ -1,14 +1,29 @@
 # dodgers-notifier
 
-A GitHub Actions workflow that runs every morning and texts you if the Dodgers are playing a home game that day.
+A GitHub Actions automation that texts you about upcoming Dodgers home games — a daily game-day alert and a weekly schedule summary.
 
 ## How It Works
 
+Everything lives in a single script, `notifier.py`, with two subcommands:
+
+### Daily check (`python notifier.py daily`)
+
 1. **GitHub Actions cron** triggers the workflow at 7:00 AM PDT / 6:00 AM PST every day.
-2. **`notifier.py daily`** queries the free, unauthenticated [MLB Stats API](https://statsapi.mlb.com) for the Dodgers' schedule on today's date (in Pacific Time).
-3. The script checks whether any game is a **home game at Dodger Stadium** — it verifies both the home team ID (119) and venue ID (22) to correctly exclude neutral-site games like the London or Tokyo Series.
+2. The script queries the free, unauthenticated [MLB Stats API](https://statsapi.mlb.com) for the Dodgers' schedule on today's date (in Pacific Time).
+3. It checks whether any game is a **home game at Dodger Stadium** — it verifies both the home team ID (119) and venue ID (22) to correctly exclude neutral-site games like the London or Tokyo Series.
 4. Postponed games are skipped automatically. Double-headers trigger one SMS per game.
-5. If a home game is found, the script **sends an email via Gmail SMTP** to your carrier's email-to-SMS gateway address (e.g. `5551234567@tmomail.net`). Your carrier converts that email into a text message delivered to your phone.
+5. If a home game is found, the script **sends an SMS** with the opponent and first pitch time.
+
+### Weekly schedule (`python notifier.py weekly`)
+
+1. **GitHub Actions cron** triggers the workflow at 4:00 PM PDT / 3:00 PM PST every Sunday.
+2. The script fetches the Dodgers schedule for the upcoming Monday–Sunday week.
+3. All home games are collected and formatted into a summary.
+4. Long messages are automatically **split into SMS-safe chunks** (max 140 characters each) and labeled (e.g. "1/3", "2/3") so they arrive in order.
+
+### How SMS delivery works
+
+The script **sends an email via Gmail SMTP** to your carrier's email-to-SMS gateway address (e.g. `5551234567@tmomail.net`). Your carrier converts that email into a text message delivered to your phone.
 
 No paid services, no third-party accounts — just a Gmail account and GitHub.
 
@@ -78,18 +93,27 @@ In your GitHub repo:
 | `GMAIL_APP_PASSWORD` | The 16-character App Password from step 3 |
 | `SMS_ADDRESS` | Your SMS gateway address from step 4 |
 
-### 6. Enable the workflow
+### 6. Enable the workflows
 
 1. Go to the **Actions** tab in your repo.
 2. If prompted with "Workflows aren't running", click **I understand my workflows, go ahead and enable them**.
+3. Both workflows — **Dodgers Home Game Check** (daily) and **Dodgers Weekly Schedule** (Sunday) — will start running on their cron schedules automatically.
 
 ### 7. Test it
+
+**Test the daily check:**
 
 1. In the **Actions** tab, select **Dodgers Home Game Check** from the left sidebar.
 2. Click **Run workflow → Run workflow**.
 3. Watch the run complete — if today is a Dodgers home game you'll get a text within a minute or two. If not, the run will exit cleanly with "No Dodgers home game today."
 
-To test against a known game date locally:
+**Test the weekly schedule:**
+
+1. In the **Actions** tab, select **Dodgers Weekly Schedule** from the left sidebar.
+2. Click **Run workflow → Run workflow**.
+3. You'll receive one or more texts with the upcoming week's home game schedule.
+
+**Test locally against a known game date:**
 
 ```bash
 GMAIL_ADDRESS=you@gmail.com \
@@ -103,7 +127,7 @@ python notifier.py daily
 
 ## Customization
 
-**Change the notification time**: Edit the `cron` value in `.github/workflows/check_game.yml`. The schedule is in UTC — [crontab.guru](https://crontab.guru) is helpful for conversions.
+**Change the notification time**: Edit the `cron` value in `.github/workflows/check_game.yml` or `.github/workflows/weekly_schedule.yml`. The schedule is in UTC — [crontab.guru](https://crontab.guru) is helpful for conversions.
 
 **Notify multiple people**: Add additional secrets (e.g. `SMS_ADDRESS_2`) and call `send_sms()` once per recipient in `notifier.py`.
 
