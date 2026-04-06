@@ -14,6 +14,7 @@ PT = ZoneInfo("America/Los_Angeles")
 
 SMS_CHUNK_LIMIT = 140  # UCS-2 limit (emojis) is 70 chars/segment; gateways often truncate
                        # at 160 bytes. 140 is a safe budget that fits in a single segment.
+_LABEL_OVERHEAD = 8   # Reserve space for "(N/N) " label, e.g. "(12/12) " = 8 chars
 
 
 # ── Shared helpers ──────────────────────────────────────────────────
@@ -147,18 +148,21 @@ def build_chunks(start_date: str, end_date: str, games: list[dict]) -> list[str]
 
     game_lines = [format_game_line(g) for g in games]
 
+    # Reserve label overhead upfront so every chunk stays within the limit after labeling.
+    limit = SMS_CHUNK_LIMIT - _LABEL_OVERHEAD
+
     chunks = []
     current = header
     for line in game_lines:
         candidate = current + "\n" + line
-        if len(candidate) > SMS_CHUNK_LIMIT and current != header:
+        if len(candidate) > limit:
             chunks.append(current)
             current = line
         else:
             current = candidate
     chunks.append(current)
 
-    # Label multi-part messages so they arrive in order (e.g. "1/3", "2/3")
+    # Label multi-part messages so they arrive in order (e.g. "(1/3)", "(2/3)")
     if len(chunks) > 1:
         total = len(chunks)
         chunks = [f"({i + 1}/{total}) {chunk}" for i, chunk in enumerate(chunks)]
