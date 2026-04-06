@@ -11,10 +11,34 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history so we can inspect recent commits
 
-      - name: Push keep-alive commit
+      - name: Keep workflows alive if repo is inactive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit --allow-empty -m "chore: keep workflows active"
-          git push
+
+          KEEP_ALIVE_MSG="chore: keep workflows active"
+
+          # Check if there have been any commits in the last 45 days
+          RECENT_COMMITS=$(git log --since="45 days ago" --oneline | grep -cv "$KEEP_ALIVE_MSG" || true)
+
+          if [ "$RECENT_COMMITS" -gt 0 ]; then
+            echo "Repo has had $RECENT_COMMITS real commit(s) in the last 45 days — no action needed."
+            exit 0
+          fi
+
+          echo "No real commits in the last 45 days — refreshing keep-alive commit."
+
+          # If the latest commit is a previous keep-alive, remove it to avoid stacking them
+          LAST_MSG=$(git log -1 --format=%s)
+          if [ "$LAST_MSG" = "$KEEP_ALIVE_MSG" ]; then
+            echo "Removing previous keep-alive commit."
+            git reset --soft HEAD~1
+            git commit --allow-empty -m "$KEEP_ALIVE_MSG"
+          else
+            git commit --allow-empty -m "$KEEP_ALIVE_MSG"
+          fi
+
+          git push --force-with-lease
