@@ -5,7 +5,7 @@ A GitHub Actions workflow that runs every morning and texts you if the Dodgers a
 ## How It Works
 
 1. **GitHub Actions cron** triggers the workflow at 7:00 AM PDT / 6:00 AM PST every day.
-2. **`check_game.py`** queries the free, unauthenticated [MLB Stats API](https://statsapi.mlb.com) for the Dodgers' schedule on today's date (in Pacific Time).
+2. **`notifier.py daily`** queries the free, unauthenticated [MLB Stats API](https://statsapi.mlb.com) for the Dodgers' schedule on today's date (in Pacific Time).
 3. The script checks whether any game is a **home game at Dodger Stadium** — it verifies both the home team ID (119) and venue ID (22) to correctly exclude neutral-site games like the London or Tokyo Series.
 4. Postponed games are skipped automatically. Double-headers trigger one SMS per game.
 5. If a home game is found, the script **sends an email via Gmail SMTP** to your carrier's email-to-SMS gateway address (e.g. `5551234567@tmomail.net`). Your carrier converts that email into a text message delivered to your phone.
@@ -96,10 +96,8 @@ GMAIL_ADDRESS=you@gmail.com \
 GMAIL_APP_PASSWORD=your_app_password \
 SMS_ADDRESS=5551234567@tmomail.net \
 GAME_DATE=2025-07-04 \
-python check_game.py
+python notifier.py daily
 ```
-
----
 
 ---
 
@@ -107,6 +105,6 @@ python check_game.py
 
 **Change the notification time**: Edit the `cron` value in `.github/workflows/check_game.yml`. The schedule is in UTC — [crontab.guru](https://crontab.guru) is helpful for conversions.
 
-**Notify multiple people**: Add additional secrets (e.g. `SMS_ADDRESS_2`) and call `send_sms()` once per recipient in `check_game.py`.
+**Notify multiple people**: Add additional secrets (e.g. `SMS_ADDRESS_2`) and call `send_sms()` once per recipient in `notifier.py`.
 
-**Change the team**: Update `DODGERS_TEAM_ID` and `DODGER_STADIUM_VENUE_ID` in `check_game.py`. Team IDs and venue IDs can be looked up via the MLB Stats API: `https://statsapi.mlb.com/api/v1/teams?sportId=1`.
+**Change the team**: Update `DODGERS_TEAM_ID` and `DODGER_STADIUM_VENUE_ID` in `notifier.py`. Team IDs and venue IDs can be looked up via the MLB Stats API: `https://statsapi.mlb.com/api/v1/teams?sportId=1`.
