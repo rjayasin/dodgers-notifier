@@ -78,8 +78,7 @@ def format_message(game: dict) -> str:
     start_time = game_time.strftime("%-I:%M %p PT")
     return (
         f"⚾ Dodgers home game today!\n"
-        f"🆚 {opponent}\n"
-        f"⏰ @ {start_time}"
+        f"🆚 {opponent} @ {start_time}"
     )
 
 
