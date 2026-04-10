@@ -1,4 +1,4 @@
-name: Dodgers Home Game Check
+name: Dodgers Daily Check
 
 on:
   schedule:
