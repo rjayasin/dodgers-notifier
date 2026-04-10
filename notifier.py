@@ -79,7 +79,7 @@ def format_message(game: dict) -> str:
     return (
         f"⚾ Dodgers home game today!\n"
         f"🆚 {opponent}\n"
-        f"⏰ First pitch: {start_time}"
+        f"⏰ @ {start_time}"
     )
 
 
