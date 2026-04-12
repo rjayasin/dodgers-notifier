@@ -76,7 +76,7 @@ def format_message(game: dict) -> str:
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     start_time = game_time.strftime("%-I:%M %p PT")
-    return f"Dodgers game at {start_time} vs {opponent}"
+    return f"Dodgers home game at {start_time} vs {opponent}"
 
 
 def daily() -> None:
