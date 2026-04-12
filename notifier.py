@@ -76,7 +76,7 @@ def format_message(game: dict) -> str:
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     start_time = game_time.strftime("%-I:%M %p PT")
-    return f"Dodgers game @ {start_time} vs {opponent}"
+    return f"Dodgers game at {start_time} vs {opponent}"
 
 
 def daily() -> None:
@@ -139,9 +139,6 @@ def build_chunks(start_date: str, end_date: str, games: list[dict]) -> list[str]
     end = datetime.strptime(end_date, "%Y-%m-%d")
     header = f"{len(games)} Dodgers games this week\n⚾ {start.strftime('%b %-d')}–{end.strftime('%-d')}"
 
-    if not games:
-        return [f"{header}\n\nNo home games this week."]
-
     game_lines = [format_game_line(g) for g in games]
 
     # Reserve label overhead upfront so every chunk stays within the limit after labeling.
@@ -179,6 +176,11 @@ def weekly() -> None:
         sys.exit(1)
 
     games = parse_home_games(data)
+
+    if not games:
+        print("No Dodgers home games this week.")
+        return
+
     chunks = build_chunks(start_date, end_date, games)
     for i, chunk in enumerate(chunks):
         print(f"Sending SMS {i + 1}/{len(chunks)}:\n{chunk}")
