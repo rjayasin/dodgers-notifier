@@ -76,7 +76,7 @@ def format_message(game: dict) -> str:
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     start_time = game_time.strftime("%-I:%M %p PT")
-    return f"Dodgers home game today! {start_time} - vs {opponent}"
+    return f"Dodgers game @ {start_time} vs {opponent}"
 
 
 def daily() -> None:
@@ -137,7 +137,7 @@ def build_chunks(start_date: str, end_date: str, games: list[dict]) -> list[str]
     """Split the weekly summary into SMS-safe chunks of at most SMS_CHUNK_LIMIT chars."""
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(end_date, "%Y-%m-%d")
-    header = f"⚾ Dodgers home games ({start.strftime('%b %-d')}–{end.strftime('%-d')})"
+    header = f"{len(games)} Dodgers games this week\n⚾ {start.strftime('%b %-d')}–{end.strftime('%-d')}"
 
     if not games:
         return [f"{header}\n\nNo home games this week."]
