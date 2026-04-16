@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dodgers Notifier — Workflow Runs</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      max-width: 900px;
+      margin: 0 auto 2rem;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    header p {
+      margin-top: 0.35rem;
+      font-size: 0.875rem;
+      color: #8b949e;
+    }
+
+    .stat-bar {
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      flex: 1;
+      min-width: 160px;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-top: 0.25rem;
+    }
+
+    .table-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      overflow-x: auto;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    thead {
+      background: #161b22;
+    }
+
+    th {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: #8b949e;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #30363d;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #21262d;
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: #161b22;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2em 0.6em;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge-success  { background: #1a4731; color: #3fb950; }
+    .badge-failure  { background: #4a1122; color: #f85149; }
+    .badge-cancelled{ background: #2d333b; color: #8b949e; }
+    .badge-skipped  { background: #2d333b; color: #8b949e; }
+    .badge-pending  { background: #2d2208; color: #e3b341; }
+    .badge-unknown  { background: #2d333b; color: #8b949e; }
+
+    .workflow-name {
+      font-weight: 500;
+      color: #58a6ff;
+      text-decoration: none;
+    }
+    .workflow-name:hover { text-decoration: underline; }
+
+    .mono { font-family: ui-monospace, monospace; }
+
+    #status {
+      max-width: 900px;
+      margin: 1rem auto;
+      color: #8b949e;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+
+    .error { color: #f85149; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Dodgers Notifier — Workflow Runs</h1>
+  <p>Recent GitHub Actions runs for <a href="https://github.com/rjayasin/dodgers-notifier" style="color:#58a6ff;text-decoration:none">rjayasin/dodgers-notifier</a></p>
+</header>
+
+<div class="stat-bar" id="stats" style="display:none">
+  <div class="stat">
+    <div class="stat-label">Runs shown</div>
+    <div class="stat-value" id="stat-count">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Avg duration</div>
+    <div class="stat-value" id="stat-avg">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Success rate</div>
+    <div class="stat-value" id="stat-success">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Last run</div>
+    <div class="stat-value" id="stat-last">—</div>
+  </div>
+</div>
+
+<div class="table-wrap" id="table-wrap" style="display:none">
+  <table>
+    <thead>
+      <tr>
+        <th>Workflow</th>
+        <th>Started</th>
+        <th>Duration</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div id="status">Loading workflow runs…</div>
+
+<script>
+  const REPO = 'rjayasin/dodgers-notifier';
+  const PER_PAGE = 20;
+
+  function fmtDuration(ms) {
+    if (ms == null) return '—';
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60), rs = s % 60;
+    return `${m}m ${rs}s`;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+    });
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return '—';
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  function badgeClass(conclusion) {
+    const map = { success: 'badge-success', failure: 'badge-failure',
+                  cancelled: 'badge-cancelled', skipped: 'badge-skipped',
+                  timed_out: 'badge-failure', action_required: 'badge-pending' };
+    return map[conclusion] || 'badge-unknown';
+  }
+
+  function badgeLabel(run) {
+    if (run.status !== 'completed') return run.status;
+    return run.conclusion || run.status;
+  }
+
+  async function load() {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${REPO}/actions/runs?per_page=${PER_PAGE}`,
+        { headers: { Accept: 'application/vnd.github+json' } }
+      );
+      if (!res.ok) throw new Error(`GitHub API ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+      render(data.workflow_runs || []);
+    } catch (e) {
+      document.getElementById('status').innerHTML =
+        `<span class="error">Failed to load runs: ${e.message}</span>`;
+    }
+  }
+
+  function render(runs) {
+    document.getElementById('status').textContent = '';
+
+    // Compute durations for completed runs
+    const durations = runs
+      .filter(r => r.status === 'completed' && r.run_started_at && r.updated_at)
+      .map(r => new Date(r.updated_at) - new Date(r.run_started_at))
+      .filter(d => d > 0);
+
+    const avgMs = durations.length
+      ? durations.reduce((a, b) => a + b, 0) / durations.length
+      : null;
+
+    const successCount = runs.filter(r => r.conclusion === 'success').length;
+    const successRate = runs.length
+      ? Math.round((successCount / runs.length) * 100) + '%'
+      : '—';
+
+    // Stats
+    document.getElementById('stat-count').textContent = runs.length;
+    document.getElementById('stat-avg').textContent = fmtDuration(avgMs);
+    document.getElementById('stat-success').textContent = successRate;
+    document.getElementById('stat-last').textContent =
+      runs.length ? timeAgo(runs[0].run_started_at) : '—';
+    document.getElementById('stats').style.display = '';
+
+    // Table rows
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    for (const run of runs) {
+      const startedAt = run.run_started_at || run.created_at;
+      const durationMs = (run.status === 'completed' && startedAt && run.updated_at)
+        ? new Date(run.updated_at) - new Date(startedAt)
+        : null;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <a class="workflow-name" href="${run.html_url}" target="_blank" rel="noopener">
+            ${run.name}
+          </a>
+          <div style="font-size:0.75rem;color:#8b949e;margin-top:2px">#${run.run_number}</div>
+        </td>
+        <td>
+          <div>${fmtDate(startedAt)}</div>
+          <div style="font-size:0.75rem;color:#8b949e">${timeAgo(startedAt)}</div>
+        </td>
+        <td class="mono">${fmtDuration(durationMs)}</td>
+        <td>
+          <span class="badge ${badgeClass(run.conclusion)}">
+            ${badgeLabel(run)}
+          </span>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById('table-wrap').style.display = '';
+  }
+
+  load();
+</script>
+</body>
+</html>
