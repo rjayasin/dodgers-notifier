@@ -187,6 +187,7 @@
 <script>
   const REPO = 'rjayasin/dodgers-notifier';
   const PER_PAGE = 20;
+  const EXCLUDED_WORKFLOWS = new Set(['Deploy GitHub Pages']);
 
   function fmtTimeOfDay(iso) {
     if (!iso) return '—';
@@ -250,7 +251,8 @@
       );
       if (!res.ok) throw new Error(`GitHub API ${res.status}: ${res.statusText}`);
       const data = await res.json();
-      render(data.workflow_runs || []);
+      const runs = (data.workflow_runs || []).filter(r => !EXCLUDED_WORKFLOWS.has(r.name));
+      render(runs);
     } catch (e) {
       document.getElementById('status').innerHTML =
         `<span class="error">Failed to load runs: ${e.message}</span>`;
