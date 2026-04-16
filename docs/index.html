@@ -155,8 +155,12 @@
     <div class="stat-value" id="stat-count">—</div>
   </div>
   <div class="stat">
-    <div class="stat-label">Avg completion time</div>
-    <div class="stat-value" id="stat-avg">—</div>
+    <div class="stat-label">Avg completion — Daily</div>
+    <div class="stat-value" id="stat-avg-daily">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Avg completion — Weekly</div>
+    <div class="stat-value" id="stat-avg-weekly">—</div>
   </div>
   <div class="stat">
     <div class="stat-label">Success rate</div>
@@ -262,9 +266,9 @@
   function render(runs) {
     document.getElementById('status').textContent = '';
 
-    // Collect completion times for completed runs
-    const completionTimes = runs
-      .filter(r => r.status === 'completed' && r.updated_at)
+    // Collect completion times per workflow
+    const completionTimes = (name) => runs
+      .filter(r => r.status === 'completed' && r.updated_at && r.name === name)
       .map(r => r.updated_at);
 
     const successCount = runs.filter(r => r.conclusion === 'success').length;
@@ -274,7 +278,8 @@
 
     // Stats
     document.getElementById('stat-count').textContent = runs.length;
-    document.getElementById('stat-avg').textContent = avgTimeOfDay(completionTimes);
+    document.getElementById('stat-avg-daily').textContent = avgTimeOfDay(completionTimes('Dodgers Daily Check'));
+    document.getElementById('stat-avg-weekly').textContent = avgTimeOfDay(completionTimes('Dodgers Weekly Schedule'));
     document.getElementById('stat-success').textContent = successRate;
     document.getElementById('stat-last').textContent =
       runs.length ? timeAgo(runs[0].run_started_at) : '—';
