@@ -333,18 +333,40 @@
     const maxDay = dayKeys[dayKeys.length - 1];
     const daySpan = Math.max(1, maxDay - minDay);
 
-    const xFor = ms => PAD.left + ((ms - minDay) / daySpan) * plotW;
-    const yFor = mins => PAD.top + (1 - mins / (24 * 60)) * plotH;
+    // Auto-scale y to the actual range of completion times so day-to-day
+    // variance is visible instead of squashed into a 24h band. Pick a "nice"
+    // tick step that yields ~5-7 gridlines, and snap bounds outward to it.
+    const mins = points.map(p => p.minutes);
+    const dataMin = Math.min(...mins);
+    const dataMax = Math.max(...mins);
+    const dataRange = Math.max(1, dataMax - dataMin);
+    const padMins = Math.max(5, Math.ceil(dataRange * 0.1));
+    const lo = Math.max(0, dataMin - padMins);
+    const hi = Math.min(24 * 60, dataMax + padMins);
+    const STEPS = [1, 2, 5, 10, 15, 20, 30, 60, 120, 180, 240];
+    const step = STEPS.find(s => Math.ceil((hi - lo) / s) <= 7) || 240;
+    const yMin = Math.floor(lo / step) * step;
+    const yMax = Math.ceil(hi / step) * step;
+    const ySpan = Math.max(step, yMax - yMin);
 
-    // Y gridlines & labels every 4 hours
-    for (let h = 0; h <= 24; h += 4) {
-      const y = yFor(h * 60);
+    const xFor = ms => PAD.left + ((ms - minDay) / daySpan) * plotW;
+    const yFor = m => PAD.top + (1 - (m - yMin) / ySpan) * plotH;
+
+    const fmtMins = m => {
+      const hh = Math.floor(m / 60) % 24;
+      const mm = m % 60;
+      return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    };
+
+    // Y gridlines & labels at the chosen step
+    for (let m = yMin; m <= yMax; m += step) {
+      const y = yFor(m);
       const line = document.createElementNS(SVG_NS, 'line');
       line.setAttribute('x1', PAD.left);
       line.setAttribute('x2', W - PAD.right);
       line.setAttribute('y1', y);
       line.setAttribute('y2', y);
-      line.setAttribute('class', h === 0 || h === 24 ? 'axis-line' : 'grid-line');
+      line.setAttribute('class', m === yMin || m === yMax ? 'axis-line' : 'grid-line');
       svg.appendChild(line);
 
       const label = document.createElementNS(SVG_NS, 'text');
@@ -352,7 +374,7 @@
       label.setAttribute('y', y + 3);
       label.setAttribute('text-anchor', 'end');
       label.setAttribute('class', 'axis-text');
-      label.textContent = `${String(h % 24).padStart(2, '0')}:00`;
+      label.textContent = fmtMins(m);
       svg.appendChild(label);
     }
 
