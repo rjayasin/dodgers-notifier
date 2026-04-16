@@ -344,10 +344,10 @@
     const lo = Math.max(0, dataMin - padMins);
     const hi = Math.min(24 * 60, dataMax + padMins);
     const STEPS = [1, 2, 5, 10, 15, 20, 30, 60, 120, 180, 240];
-    const step = STEPS.find(s => Math.ceil((hi - lo) / s) <= 7) || 240;
-    const yMin = Math.floor(lo / step) * step;
-    const yMax = Math.ceil(hi / step) * step;
-    const ySpan = Math.max(step, yMax - yMin);
+    const yStep = STEPS.find(s => Math.ceil((hi - lo) / s) <= 7) || 240;
+    const yMin = Math.floor(lo / yStep) * yStep;
+    const yMax = Math.ceil(hi / yStep) * yStep;
+    const ySpan = Math.max(yStep, yMax - yMin);
 
     const xFor = ms => PAD.left + ((ms - minDay) / daySpan) * plotW;
     const yFor = m => PAD.top + (1 - (m - yMin) / ySpan) * plotH;
@@ -359,7 +359,7 @@
     };
 
     // Y gridlines & labels at the chosen step
-    for (let m = yMin; m <= yMax; m += step) {
+    for (let m = yMin; m <= yMax; m += yStep) {
       const y = yFor(m);
       const line = document.createElementNS(SVG_NS, 'line');
       line.setAttribute('x1', PAD.left);
