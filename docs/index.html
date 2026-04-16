@@ -155,7 +155,7 @@
     <div class="stat-value" id="stat-count">—</div>
   </div>
   <div class="stat">
-    <div class="stat-label">Avg duration</div>
+    <div class="stat-label">Avg completion time</div>
     <div class="stat-value" id="stat-avg">—</div>
   </div>
   <div class="stat">
@@ -174,7 +174,7 @@
       <tr>
         <th>Workflow</th>
         <th>Started</th>
-        <th>Duration</th>
+        <th>Completed at</th>
         <th>Status</th>
       </tr>
     </thead>
@@ -188,12 +188,11 @@
   const REPO = 'rjayasin/dodgers-notifier';
   const PER_PAGE = 20;
 
-  function fmtDuration(ms) {
-    if (ms == null) return '—';
-    const s = Math.round(ms / 1000);
-    if (s < 60) return `${s}s`;
-    const m = Math.floor(s / 60), rs = s % 60;
-    return `${m}m ${rs}s`;
+  function fmtTimeOfDay(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+    });
   }
 
   function fmtDate(iso) {
@@ -201,6 +200,22 @@
     const d = new Date(iso);
     return d.toLocaleString(undefined, {
       month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+    });
+  }
+
+  // Average a set of ISO timestamps by time-of-day (minutes since midnight, local time).
+  function avgTimeOfDay(isoTimes) {
+    if (!isoTimes.length) return '—';
+    const minutesList = isoTimes.map(iso => {
+      const d = new Date(iso);
+      return d.getHours() * 60 + d.getMinutes();
+    });
+    const avgMins = Math.round(minutesList.reduce((a, b) => a + b, 0) / minutesList.length);
+    // Build a Date set to that local time today so toLocaleTimeString works correctly.
+    const ref = new Date();
+    ref.setHours(Math.floor(avgMins / 60), avgMins % 60, 0, 0);
+    return ref.toLocaleTimeString(undefined, {
       hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
     });
   }
@@ -245,15 +260,10 @@
   function render(runs) {
     document.getElementById('status').textContent = '';
 
-    // Compute durations for completed runs
-    const durations = runs
-      .filter(r => r.status === 'completed' && r.run_started_at && r.updated_at)
-      .map(r => new Date(r.updated_at) - new Date(r.run_started_at))
-      .filter(d => d > 0);
-
-    const avgMs = durations.length
-      ? durations.reduce((a, b) => a + b, 0) / durations.length
-      : null;
+    // Collect completion times for completed runs
+    const completionTimes = runs
+      .filter(r => r.status === 'completed' && r.updated_at)
+      .map(r => r.updated_at);
 
     const successCount = runs.filter(r => r.conclusion === 'success').length;
     const successRate = runs.length
@@ -262,7 +272,7 @@
 
     // Stats
     document.getElementById('stat-count').textContent = runs.length;
-    document.getElementById('stat-avg').textContent = fmtDuration(avgMs);
+    document.getElementById('stat-avg').textContent = avgTimeOfDay(completionTimes);
     document.getElementById('stat-success').textContent = successRate;
     document.getElementById('stat-last').textContent =
       runs.length ? timeAgo(runs[0].run_started_at) : '—';
@@ -273,9 +283,7 @@
     tbody.innerHTML = '';
     for (const run of runs) {
       const startedAt = run.run_started_at || run.created_at;
-      const durationMs = (run.status === 'completed' && startedAt && run.updated_at)
-        ? new Date(run.updated_at) - new Date(startedAt)
-        : null;
+      const completedAt = run.status === 'completed' ? run.updated_at : null;
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -289,7 +297,7 @@
           <div>${fmtDate(startedAt)}</div>
           <div style="font-size:0.75rem;color:#8b949e">${timeAgo(startedAt)}</div>
         </td>
-        <td class="mono">${fmtDuration(durationMs)}</td>
+        <td class="mono">${fmtTimeOfDay(completedAt)}</td>
         <td>
           <span class="badge ${badgeClass(run.conclusion)}">
             ${badgeLabel(run)}
