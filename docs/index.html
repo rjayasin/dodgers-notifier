@@ -140,6 +140,36 @@
     }
 
     .error { color: #f85149; }
+
+    .chart-wrap {
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1rem 1.25rem 0.75rem;
+    }
+
+    .chart-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 0.5rem;
+    }
+
+    .chart-sub {
+      font-size: 0.75rem;
+      color: #8b949e;
+      margin-bottom: 0.75rem;
+    }
+
+    #chart { width: 100%; height: auto; display: block; }
+
+    .axis-line { stroke: #30363d; stroke-width: 1; }
+    .grid-line { stroke: #21262d; stroke-width: 1; }
+    .axis-text { fill: #8b949e; font-size: 10px; font-family: ui-monospace, monospace; }
+    .point { fill: #58a6ff; stroke: #0d1117; stroke-width: 1; }
+    .point-fail { fill: #f85149; }
   </style>
 </head>
 <body>
@@ -148,6 +178,12 @@
   <h1>Dodgers Notifier — Workflow Runs</h1>
   <p>Recent GitHub Actions runs for <a href="https://github.com/rjayasin/dodgers-notifier" style="color:#58a6ff;text-decoration:none">rjayasin/dodgers-notifier</a></p>
 </header>
+
+<div class="chart-wrap" id="chart-wrap" style="display:none">
+  <div class="chart-title">Daily Check completion time</div>
+  <div class="chart-sub">Time of day each <span class="mono">Dodgers Daily Check</span> run completed (local time)</div>
+  <svg id="chart" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
 
 <div class="stat-bar" id="stats" style="display:none">
   <div class="stat">
@@ -263,8 +299,134 @@
     }
   }
 
+  function renderChart(runs) {
+    const svg = document.getElementById('chart');
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const W = 900, H = 280;
+    const PAD = { top: 16, right: 20, bottom: 36, left: 56 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+
+    const points = runs
+      .filter(r => r.name === 'Dodgers Daily Check' && r.status === 'completed' && r.updated_at)
+      .map(r => {
+        const d = new Date(r.updated_at);
+        const dayKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const minutes = d.getHours() * 60 + d.getMinutes();
+        return { date: d, dayKey, minutes, run: r };
+      });
+
+    svg.innerHTML = '';
+    if (!points.length) {
+      const t = document.createElementNS(SVG_NS, 'text');
+      t.setAttribute('x', W / 2);
+      t.setAttribute('y', H / 2);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('class', 'axis-text');
+      t.textContent = 'No completed Daily Check runs to plot';
+      svg.appendChild(t);
+      return;
+    }
+
+    const dayKeys = [...new Set(points.map(p => p.dayKey))].sort((a, b) => a - b);
+    const minDay = dayKeys[0];
+    const maxDay = dayKeys[dayKeys.length - 1];
+    const daySpan = Math.max(1, maxDay - minDay);
+
+    const xFor = ms => PAD.left + ((ms - minDay) / daySpan) * plotW;
+    const yFor = mins => PAD.top + (1 - mins / (24 * 60)) * plotH;
+
+    // Y gridlines & labels every 4 hours
+    for (let h = 0; h <= 24; h += 4) {
+      const y = yFor(h * 60);
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', PAD.left);
+      line.setAttribute('x2', W - PAD.right);
+      line.setAttribute('y1', y);
+      line.setAttribute('y2', y);
+      line.setAttribute('class', h === 0 || h === 24 ? 'axis-line' : 'grid-line');
+      svg.appendChild(line);
+
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', PAD.left - 8);
+      label.setAttribute('y', y + 3);
+      label.setAttribute('text-anchor', 'end');
+      label.setAttribute('class', 'axis-text');
+      label.textContent = `${String(h % 24).padStart(2, '0')}:00`;
+      svg.appendChild(label);
+    }
+
+    // X axis line
+    const xAxis = document.createElementNS(SVG_NS, 'line');
+    xAxis.setAttribute('x1', PAD.left);
+    xAxis.setAttribute('x2', W - PAD.right);
+    xAxis.setAttribute('y1', H - PAD.bottom);
+    xAxis.setAttribute('y2', H - PAD.bottom);
+    xAxis.setAttribute('class', 'axis-line');
+    svg.appendChild(xAxis);
+
+    // X tick labels: aim for ~6 ticks across the unique days
+    const tickCount = Math.min(6, dayKeys.length);
+    const step = Math.max(1, Math.floor(dayKeys.length / tickCount));
+    const fmt = ms => {
+      const d = new Date(ms);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    };
+    for (let i = 0; i < dayKeys.length; i += step) {
+      const ms = dayKeys[i];
+      const x = xFor(ms);
+      const tick = document.createElementNS(SVG_NS, 'line');
+      tick.setAttribute('x1', x);
+      tick.setAttribute('x2', x);
+      tick.setAttribute('y1', H - PAD.bottom);
+      tick.setAttribute('y2', H - PAD.bottom + 4);
+      tick.setAttribute('class', 'axis-line');
+      svg.appendChild(tick);
+
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', x);
+      label.setAttribute('y', H - PAD.bottom + 16);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('class', 'axis-text');
+      label.textContent = fmt(ms);
+      svg.appendChild(label);
+    }
+    // Always include the last day label if not already a tick
+    if ((dayKeys.length - 1) % step !== 0) {
+      const ms = dayKeys[dayKeys.length - 1];
+      const x = xFor(ms);
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', x);
+      label.setAttribute('y', H - PAD.bottom + 16);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('class', 'axis-text');
+      label.textContent = fmt(ms);
+      svg.appendChild(label);
+    }
+
+    // Points
+    for (const p of points) {
+      const c = document.createElementNS(SVG_NS, 'circle');
+      c.setAttribute('cx', xFor(p.dayKey));
+      c.setAttribute('cy', yFor(p.minutes));
+      c.setAttribute('r', 4);
+      c.setAttribute('class', p.run.conclusion === 'success' ? 'point' : 'point point-fail');
+      const title = document.createElementNS(SVG_NS, 'title');
+      const t = p.date.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+      });
+      title.textContent = `${t} — ${p.run.conclusion || p.run.status}`;
+      c.appendChild(title);
+      svg.appendChild(c);
+    }
+
+    document.getElementById('chart-wrap').style.display = '';
+  }
+
   function render(runs) {
     document.getElementById('status').textContent = '';
+    renderChart(runs);
 
     // Collect completion times per workflow
     const completionTimes = (name) => runs
