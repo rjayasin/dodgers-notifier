@@ -2,6 +2,8 @@
 
 A GitHub Actions automation that texts you about upcoming Dodgers home games — a daily game-day alert and a weekly schedule summary.
 
+**[rjayasin.github.io/dodgers-notifier](https://rjayasin.github.io/dodgers-notifier)** — workflow run dashboard
+
 ## How It Works
 
 Everything lives in a single script, `notifier.py`, with two subcommands:
