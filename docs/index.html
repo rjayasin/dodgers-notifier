@@ -494,8 +494,9 @@
     document.getElementById('stat-avg-daily').textContent = avgTimeOfDay(completionTimes('Dodgers Daily Check'));
     document.getElementById('stat-avg-weekly').textContent = avgTimeOfDay(completionTimes('Dodgers Weekly Schedule'));
     document.getElementById('stat-success').textContent = successRate;
+    const lastCompleted = runs.find(r => r.status === 'completed' && r.updated_at);
     document.getElementById('stat-last').textContent =
-      runs.length ? timeAgo(runs[0].run_started_at) : '—';
+      lastCompleted ? fmtDate(lastCompleted.updated_at) : '—';
     document.getElementById('stats').style.display = '';
 
     // Table rows
