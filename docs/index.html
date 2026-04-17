@@ -170,6 +170,8 @@
     .axis-text { fill: #8b949e; font-size: 10px; font-family: ui-monospace, monospace; }
     .point { fill: #58a6ff; stroke: #0d1117; stroke-width: 1; }
     .point-fail { fill: #f85149; }
+    .sched-line { stroke: #e3b341; stroke-width: 1; stroke-dasharray: 4 3; }
+    .sched-label { fill: #e3b341; font-size: 10px; font-family: ui-monospace, monospace; }
   </style>
 </head>
 <body>
@@ -228,6 +230,9 @@
   const REPO = 'rjayasin/dodgers-notifier';
   const PER_PAGE = 100;
   const EXCLUDED_WORKFLOWS = new Set(['Deploy GitHub Pages', 'pages build and deployment']);
+  // Matches the cron in .github/workflows/daily_check.yml ('0 14 * * *' UTC).
+  const DAILY_CRON_UTC_HOUR = 14;
+  const DAILY_CRON_UTC_MINUTE = 0;
 
   function fmtTimeOfDay(iso) {
     if (!iso) return '—';
@@ -333,12 +338,18 @@
     const maxDay = dayKeys[dayKeys.length - 1];
     const daySpan = Math.max(1, maxDay - minDay);
 
+    // Scheduled cron runs at a fixed UTC time; convert to the viewer's local
+    // minutes-since-midnight so the horizontal line aligns with the y-axis.
+    const schedRef = new Date();
+    schedRef.setUTCHours(DAILY_CRON_UTC_HOUR, DAILY_CRON_UTC_MINUTE, 0, 0);
+    const scheduledMinutes = schedRef.getHours() * 60 + schedRef.getMinutes();
+
     // Auto-scale y to the actual range of completion times so day-to-day
     // variance is visible instead of squashed into a 24h band. Pick a "nice"
     // tick step that yields ~5-7 gridlines, and snap bounds outward to it.
     const mins = points.map(p => p.minutes);
-    const dataMin = Math.min(...mins);
-    const dataMax = Math.max(...mins);
+    const dataMin = Math.min(...mins, scheduledMinutes);
+    const dataMax = Math.max(...mins, scheduledMinutes);
     const dataRange = Math.max(1, dataMax - dataMin);
     const padMins = Math.max(5, Math.ceil(dataRange * 0.1));
     const lo = Math.max(0, dataMin - padMins);
@@ -425,6 +436,24 @@
       label.textContent = fmt(ms);
       svg.appendChild(label);
     }
+
+    // Horizontal line at the scheduled cron time
+    const schedY = yFor(scheduledMinutes);
+    const schedLine = document.createElementNS(SVG_NS, 'line');
+    schedLine.setAttribute('x1', PAD.left);
+    schedLine.setAttribute('x2', W - PAD.right);
+    schedLine.setAttribute('y1', schedY);
+    schedLine.setAttribute('y2', schedY);
+    schedLine.setAttribute('class', 'sched-line');
+    svg.appendChild(schedLine);
+
+    const schedLabel = document.createElementNS(SVG_NS, 'text');
+    schedLabel.setAttribute('x', W - PAD.right - 4);
+    schedLabel.setAttribute('y', schedY - 4);
+    schedLabel.setAttribute('text-anchor', 'end');
+    schedLabel.setAttribute('class', 'sched-label');
+    schedLabel.textContent = `scheduled ${fmtMins(scheduledMinutes)}`;
+    svg.appendChild(schedLabel);
 
     // Points
     for (const p of points) {
