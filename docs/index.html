@@ -246,6 +246,18 @@
     });
   }
 
+  function fmtDateDot(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const time = d.toLocaleTimeString(undefined, {
+      hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+    });
+    return `${yyyy}.${mm}.${dd} ${time}`;
+  }
+
   // Average a set of ISO timestamps by time-of-day (minutes since midnight, local time).
   function avgTimeOfDay(isoTimes) {
     if (!isoTimes.length) return '—';
@@ -486,7 +498,7 @@
     document.getElementById('stat-avg-weekly').textContent = avgTimeOfDay(completionTimes('Dodgers Weekly Schedule'));
     const lastCompleted = runs.find(r => r.status === 'completed' && r.updated_at);
     document.getElementById('stat-last').textContent =
-      lastCompleted ? fmtDate(lastCompleted.updated_at) : '—';
+      lastCompleted ? fmtDateDot(lastCompleted.updated_at) : '—';
     document.getElementById('stats').style.display = '';
 
     // Table rows
