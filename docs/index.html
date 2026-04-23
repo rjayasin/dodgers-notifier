@@ -201,10 +201,6 @@
     <div class="stat-value" id="stat-avg-weekly">—</div>
   </div>
   <div class="stat">
-    <div class="stat-label">Success rate</div>
-    <div class="stat-value" id="stat-success">—</div>
-  </div>
-  <div class="stat">
     <div class="stat-label">Last run</div>
     <div class="stat-value" id="stat-last">—</div>
   </div>
@@ -484,16 +480,10 @@
       .filter(r => r.status === 'completed' && r.updated_at && r.name === name)
       .map(r => r.updated_at);
 
-    const successCount = runs.filter(r => r.conclusion === 'success').length;
-    const successRate = runs.length
-      ? Math.round((successCount / runs.length) * 100) + '%'
-      : '—';
-
     // Stats
     document.getElementById('stat-count').textContent = runs.length;
     document.getElementById('stat-avg-daily').textContent = avgTimeOfDay(completionTimes('Dodgers Daily Check'));
     document.getElementById('stat-avg-weekly').textContent = avgTimeOfDay(completionTimes('Dodgers Weekly Schedule'));
-    document.getElementById('stat-success').textContent = successRate;
     const lastCompleted = runs.find(r => r.status === 'completed' && r.updated_at);
     document.getElementById('stat-last').textContent =
       lastCompleted ? fmtDate(lastCompleted.updated_at) : '—';
