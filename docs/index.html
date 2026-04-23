@@ -200,10 +200,16 @@
   </div>
 </div>
 
-<div class="chart-wrap" id="chart-wrap" style="display:none">
+<div class="chart-wrap" id="chart-wrap-daily" style="display:none">
   <div class="chart-title">Daily Check completion time</div>
   <div class="chart-sub">Time of day each <span class="mono">Dodgers Daily Check</span> run completed (local time)</div>
-  <svg id="chart" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg id="chart-daily" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
+
+<div class="chart-wrap" id="chart-wrap-weekly" style="display:none">
+  <div class="chart-title">Weekly Schedule completion time</div>
+  <div class="chart-sub">Time of day each <span class="mono">Dodgers Weekly Schedule</span> run completed (local time)</div>
+  <svg id="chart-weekly" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
 <div class="table-wrap" id="table-wrap" style="display:none">
@@ -229,6 +235,9 @@
   // Matches the cron in .github/workflows/daily_check.yml ('0 14 * * *' UTC).
   const DAILY_CRON_UTC_HOUR = 14;
   const DAILY_CRON_UTC_MINUTE = 0;
+  // Matches the cron in .github/workflows/weekly_schedule.yml ('0 23 * * 0' UTC).
+  const WEEKLY_CRON_UTC_HOUR = 23;
+  const WEEKLY_CRON_UTC_MINUTE = 0;
 
   function fmtTimeOfDay(iso) {
     if (!iso) return '—';
@@ -312,8 +321,9 @@
     }
   }
 
-  function renderChart(runs) {
-    const svg = document.getElementById('chart');
+  function renderChart(runs, opts) {
+    const { workflowName, svgId, wrapId, cronUtcHour, cronUtcMinute, emptyLabel } = opts;
+    const svg = document.getElementById(svgId);
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const W = 900, H = 280;
     const PAD = { top: 16, right: 20, bottom: 36, left: 56 };
@@ -321,7 +331,7 @@
     const plotH = H - PAD.top - PAD.bottom;
 
     const points = runs
-      .filter(r => r.name === 'Dodgers Daily Check' && r.status === 'completed' && r.updated_at)
+      .filter(r => r.name === workflowName && r.status === 'completed' && r.updated_at)
       .map(r => {
         const d = new Date(r.updated_at);
         const dayKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -330,13 +340,14 @@
       });
 
     svg.innerHTML = '';
+    document.getElementById(wrapId).style.display = '';
     if (!points.length) {
       const t = document.createElementNS(SVG_NS, 'text');
       t.setAttribute('x', W / 2);
       t.setAttribute('y', H / 2);
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('class', 'axis-text');
-      t.textContent = 'No completed Daily Check runs to plot';
+      t.textContent = `No completed ${emptyLabel} runs to plot`;
       svg.appendChild(t);
       return;
     }
@@ -349,7 +360,7 @@
     // Scheduled cron runs at a fixed UTC time; convert to the viewer's local
     // minutes-since-midnight so the horizontal line aligns with the y-axis.
     const schedRef = new Date();
-    schedRef.setUTCHours(DAILY_CRON_UTC_HOUR, DAILY_CRON_UTC_MINUTE, 0, 0);
+    schedRef.setUTCHours(cronUtcHour, cronUtcMinute, 0, 0);
     const scheduledMinutes = schedRef.getHours() * 60 + schedRef.getMinutes();
 
     // Auto-scale y to the actual range of completion times so day-to-day
@@ -479,13 +490,10 @@
       c.appendChild(title);
       svg.appendChild(c);
     }
-
-    document.getElementById('chart-wrap').style.display = '';
   }
 
   function render(runs) {
     document.getElementById('status').textContent = '';
-    renderChart(runs);
 
     // Collect completion times per workflow
     const completionTimes = (name) => runs
@@ -500,6 +508,23 @@
     document.getElementById('stat-last').textContent =
       lastCompleted ? fmtDateDot(lastCompleted.updated_at) : '—';
     document.getElementById('stats').style.display = '';
+
+    renderChart(runs, {
+      workflowName: 'Dodgers Daily Check',
+      svgId: 'chart-daily',
+      wrapId: 'chart-wrap-daily',
+      cronUtcHour: DAILY_CRON_UTC_HOUR,
+      cronUtcMinute: DAILY_CRON_UTC_MINUTE,
+      emptyLabel: 'Daily Check',
+    });
+    renderChart(runs, {
+      workflowName: 'Dodgers Weekly Schedule',
+      svgId: 'chart-weekly',
+      wrapId: 'chart-wrap-weekly',
+      cronUtcHour: WEEKLY_CRON_UTC_HOUR,
+      cronUtcMinute: WEEKLY_CRON_UTC_MINUTE,
+      emptyLabel: 'Weekly Schedule',
+    });
 
     // Table rows
     const tbody = document.getElementById('tbody');
