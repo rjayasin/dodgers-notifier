@@ -331,7 +331,7 @@
     const plotH = H - PAD.top - PAD.bottom;
 
     const points = runs
-      .filter(r => r.name === workflowName && r.status === 'completed' && r.updated_at)
+      .filter(r => r.name === workflowName && r.status === 'completed' && r.updated_at && r.event !== 'workflow_dispatch')
       .map(r => {
         const d = new Date(r.updated_at);
         const dayKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -497,14 +497,14 @@
 
     // Collect completion times per workflow
     const completionTimes = (name) => runs
-      .filter(r => r.status === 'completed' && r.updated_at && r.name === name)
+      .filter(r => r.status === 'completed' && r.updated_at && r.name === name && r.event !== 'workflow_dispatch')
       .map(r => r.updated_at);
 
     // Stats
     document.getElementById('stat-count').textContent = runs.length;
     document.getElementById('stat-avg-daily').textContent = avgTimeOfDay(completionTimes('Dodgers Daily Check'));
     document.getElementById('stat-avg-weekly').textContent = avgTimeOfDay(completionTimes('Dodgers Weekly Schedule'));
-    const lastCompleted = runs.find(r => r.status === 'completed' && r.updated_at);
+    const lastCompleted = runs.find(r => r.status === 'completed' && r.updated_at && r.event !== 'workflow_dispatch');
     document.getElementById('stat-last').textContent =
       lastCompleted ? fmtDateDot(lastCompleted.updated_at) : '—';
     document.getElementById('stats').style.display = '';
