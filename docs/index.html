@@ -172,6 +172,11 @@
     .point-fail { fill: #f85149; }
     .sched-line { stroke: #e3b341; stroke-width: 1; stroke-dasharray: 4 3; }
     .sched-label { fill: #e3b341; font-size: 10px; font-family: ui-monospace, monospace; }
+
+    .box-rect { fill: rgba(88, 166, 255, 0.25); stroke: #58a6ff; stroke-width: 1.25; }
+    .box-whisker { stroke: #8b949e; stroke-width: 1.25; }
+    .box-median { stroke: #f0f6fc; stroke-width: 2; }
+    .box-outlier { fill: #f85149; stroke: #0d1117; stroke-width: 1; }
   </style>
 </head>
 <body>
@@ -210,6 +215,12 @@
   <div class="chart-title">Weekly Schedule completion time</div>
   <div class="chart-sub">Time of day each <span class="mono">Dodgers Weekly Schedule</span> run completed (local time)</div>
   <svg id="chart-weekly" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
+
+<div class="chart-wrap" id="chart-wrap-deploy-box" style="display:none">
+  <div class="chart-title">Deploy time by day of week</div>
+  <div class="chart-sub">Distribution of scheduled-run completion times grouped by weekday (local time)</div>
+  <svg id="chart-deploy-box" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
 <div class="table-wrap" id="table-wrap" style="display:none">
@@ -493,6 +504,204 @@
     }
   }
 
+  function renderDeployBoxPlot(runs) {
+    const svg = document.getElementById('chart-deploy-box');
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const W = 900, H = 320;
+    const PAD = { top: 16, right: 20, bottom: 40, left: 64 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+
+    svg.innerHTML = '';
+    document.getElementById('chart-wrap-deploy-box').style.display = '';
+
+    const SCHEDULED_NAMES = new Set(['Dodgers Daily Check', 'Dodgers Weekly Schedule']);
+    const deploys = runs
+      .filter(r => SCHEDULED_NAMES.has(r.name)
+                && r.status === 'completed'
+                && r.updated_at
+                && r.event !== 'workflow_dispatch')
+      .map(r => {
+        const d = new Date(r.updated_at);
+        return {
+          minutes: d.getHours() * 60 + d.getMinutes(),
+          dayOfWeek: d.getDay(),
+          run: r,
+        };
+      });
+
+    if (!deploys.length) {
+      const t = document.createElementNS(SVG_NS, 'text');
+      t.setAttribute('x', W / 2);
+      t.setAttribute('y', H / 2);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('class', 'axis-text');
+      t.textContent = 'No completed scheduled runs to plot';
+      svg.appendChild(t);
+      return;
+    }
+
+    const groups = [[], [], [], [], [], [], []];
+    for (const d of deploys) groups[d.dayOfWeek].push(d.minutes);
+    for (const g of groups) g.sort((a, b) => a - b);
+
+    const quantile = (sorted, q) => {
+      const pos = (sorted.length - 1) * q;
+      const base = Math.floor(pos);
+      const rest = pos - base;
+      return sorted[base + 1] !== undefined
+        ? sorted[base] + rest * (sorted[base + 1] - sorted[base])
+        : sorted[base];
+    };
+
+    const stats = groups.map(g => {
+      if (!g.length) return null;
+      const q1 = quantile(g, 0.25);
+      const median = quantile(g, 0.5);
+      const q3 = quantile(g, 0.75);
+      const iqr = q3 - q1;
+      const lowerFence = q1 - 1.5 * iqr;
+      const upperFence = q3 + 1.5 * iqr;
+      const inliers = g.filter(v => v >= lowerFence && v <= upperFence);
+      const outliers = g.filter(v => v < lowerFence || v > upperFence);
+      const whiskerLo = inliers.length ? inliers[0] : g[0];
+      const whiskerHi = inliers.length ? inliers[inliers.length - 1] : g[g.length - 1];
+      return { q1, median, q3, whiskerLo, whiskerHi, outliers, count: g.length };
+    });
+
+    const allShown = [];
+    for (const s of stats) {
+      if (!s) continue;
+      allShown.push(s.whiskerLo, s.whiskerHi, ...s.outliers);
+    }
+    const dataMin = Math.min(...allShown);
+    const dataMax = Math.max(...allShown);
+    const dataRange = Math.max(1, dataMax - dataMin);
+    const padMins = Math.max(5, Math.ceil(dataRange * 0.1));
+    const lo = Math.max(0, dataMin - padMins);
+    const hi = Math.min(24 * 60, dataMax + padMins);
+    const STEPS = [1, 2, 5, 10, 15, 20, 30, 60, 120, 180, 240];
+    const yStep = STEPS.find(s => Math.ceil((hi - lo) / s) <= 7) || 240;
+    const yMin = Math.floor(lo / yStep) * yStep;
+    const yMax = Math.ceil(hi / yStep) * yStep;
+    const ySpan = Math.max(yStep, yMax - yMin);
+
+    const yFor = v => PAD.top + (1 - (v - yMin) / ySpan) * plotH;
+
+    const fmtMins = m => {
+      const hh = Math.floor(m / 60) % 24;
+      const mm = Math.round(m) % 60;
+      return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    };
+
+    // Y gridlines & labels
+    for (let v = yMin; v <= yMax; v += yStep) {
+      const y = yFor(v);
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', PAD.left);
+      line.setAttribute('x2', W - PAD.right);
+      line.setAttribute('y1', y);
+      line.setAttribute('y2', y);
+      line.setAttribute('class', v === yMin || v === yMax ? 'axis-line' : 'grid-line');
+      svg.appendChild(line);
+
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', PAD.left - 8);
+      label.setAttribute('y', y + 3);
+      label.setAttribute('text-anchor', 'end');
+      label.setAttribute('class', 'axis-text');
+      label.textContent = fmtMins(v);
+      svg.appendChild(label);
+    }
+
+    // X axis
+    const xAxis = document.createElementNS(SVG_NS, 'line');
+    xAxis.setAttribute('x1', PAD.left);
+    xAxis.setAttribute('x2', W - PAD.right);
+    xAxis.setAttribute('y1', H - PAD.bottom);
+    xAxis.setAttribute('y2', H - PAD.bottom);
+    xAxis.setAttribute('class', 'axis-line');
+    svg.appendChild(xAxis);
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const groupW = plotW / 7;
+    const boxW = Math.min(groupW * 0.55, 64);
+
+    for (let i = 0; i < 7; i++) {
+      const cx = PAD.left + groupW * (i + 0.5);
+
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', cx);
+      label.setAttribute('y', H - PAD.bottom + 16);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('class', 'axis-text');
+      label.textContent = stats[i] ? `${dayNames[i]} (${stats[i].count})` : `${dayNames[i]}`;
+      svg.appendChild(label);
+
+      const s = stats[i];
+      if (!s) continue;
+
+      const xL = cx - boxW / 2;
+      const xR = cx + boxW / 2;
+      const capHalf = boxW / 4;
+
+      const whisker = document.createElementNS(SVG_NS, 'line');
+      whisker.setAttribute('x1', cx);
+      whisker.setAttribute('x2', cx);
+      whisker.setAttribute('y1', yFor(s.whiskerLo));
+      whisker.setAttribute('y2', yFor(s.whiskerHi));
+      whisker.setAttribute('class', 'box-whisker');
+      svg.appendChild(whisker);
+
+      for (const v of [s.whiskerLo, s.whiskerHi]) {
+        const cap = document.createElementNS(SVG_NS, 'line');
+        cap.setAttribute('x1', cx - capHalf);
+        cap.setAttribute('x2', cx + capHalf);
+        cap.setAttribute('y1', yFor(v));
+        cap.setAttribute('y2', yFor(v));
+        cap.setAttribute('class', 'box-whisker');
+        svg.appendChild(cap);
+      }
+
+      const boxTop = yFor(s.q3);
+      const boxBottom = yFor(s.q1);
+      const box = document.createElementNS(SVG_NS, 'rect');
+      box.setAttribute('x', xL);
+      box.setAttribute('y', boxTop);
+      box.setAttribute('width', boxW);
+      box.setAttribute('height', Math.max(1, boxBottom - boxTop));
+      box.setAttribute('class', 'box-rect');
+      const boxTitle = document.createElementNS(SVG_NS, 'title');
+      boxTitle.textContent =
+        `${dayNames[i]} — n=${s.count}\n` +
+        `median: ${fmtMins(s.median)}\n` +
+        `Q1: ${fmtMins(s.q1)} • Q3: ${fmtMins(s.q3)}\n` +
+        `min: ${fmtMins(s.whiskerLo)} • max: ${fmtMins(s.whiskerHi)}`;
+      box.appendChild(boxTitle);
+      svg.appendChild(box);
+
+      const medLine = document.createElementNS(SVG_NS, 'line');
+      medLine.setAttribute('x1', xL);
+      medLine.setAttribute('x2', xR);
+      medLine.setAttribute('y1', yFor(s.median));
+      medLine.setAttribute('y2', yFor(s.median));
+      medLine.setAttribute('class', 'box-median');
+      svg.appendChild(medLine);
+
+      for (const v of s.outliers) {
+        const c = document.createElementNS(SVG_NS, 'circle');
+        c.setAttribute('cx', cx);
+        c.setAttribute('cy', yFor(v));
+        c.setAttribute('r', 3);
+        c.setAttribute('class', 'box-outlier');
+        const ot = document.createElementNS(SVG_NS, 'title');
+        ot.textContent = `outlier: ${fmtMins(v)}`;
+        c.appendChild(ot);
+        svg.appendChild(c);
+      }
+    }
+  }
+
   function render(runs) {
     document.getElementById('status').textContent = '';
 
@@ -526,6 +735,7 @@
       cronUtcMinute: WEEKLY_CRON_UTC_MINUTE,
       emptyLabel: 'Weekly Schedule',
     });
+    renderDeployBoxPlot(runs);
 
     // Table rows
     const tbody = document.getElementById('tbody');
