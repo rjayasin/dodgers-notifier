@@ -211,16 +211,16 @@
   <svg id="chart-daily" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
+<div class="chart-wrap" id="chart-wrap-deploy-box" style="display:none">
+  <div class="chart-title">Daily Check completion time by day of week</div>
+  <div class="chart-sub">Distribution of <span class="mono">Dodgers Daily Check</span> completion times grouped by weekday (local time)</div>
+  <svg id="chart-deploy-box" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
+
 <div class="chart-wrap" id="chart-wrap-weekly" style="display:none">
   <div class="chart-title">Weekly Schedule completion time</div>
   <div class="chart-sub">Time of day each <span class="mono">Dodgers Weekly Schedule</span> run completed (local time)</div>
   <svg id="chart-weekly" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
-</div>
-
-<div class="chart-wrap" id="chart-wrap-deploy-box" style="display:none">
-  <div class="chart-title">Deploy time by day of week</div>
-  <div class="chart-sub">Distribution of scheduled-run completion times grouped by weekday (local time)</div>
-  <svg id="chart-deploy-box" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
 <div class="table-wrap" id="table-wrap" style="display:none">
@@ -515,9 +515,8 @@
     svg.innerHTML = '';
     document.getElementById('chart-wrap-deploy-box').style.display = '';
 
-    const SCHEDULED_NAMES = new Set(['Dodgers Daily Check', 'Dodgers Weekly Schedule']);
     const deploys = runs
-      .filter(r => SCHEDULED_NAMES.has(r.name)
+      .filter(r => r.name === 'Dodgers Daily Check'
                 && r.status === 'completed'
                 && r.updated_at
                 && r.event !== 'workflow_dispatch')
@@ -536,7 +535,7 @@
       t.setAttribute('y', H / 2);
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('class', 'axis-text');
-      t.textContent = 'No completed scheduled runs to plot';
+      t.textContent = 'No completed Daily Check runs to plot';
       svg.appendChild(t);
       return;
     }
