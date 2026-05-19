@@ -269,12 +269,17 @@
   function fmtDateDot(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
     const time = d.toLocaleTimeString(undefined, {
       hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
     });
+    const now = new Date();
+    const isToday = d.getFullYear() === now.getFullYear()
+      && d.getMonth() === now.getMonth()
+      && d.getDate() === now.getDate();
+    if (isToday) return `Today ${time}`;
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
     return `${yyyy}.${mm}.${dd} ${time}`;
   }
 
