@@ -573,7 +573,13 @@
       return { q1, median, q3, whiskerLo, whiskerHi, outliers, count: g.length };
     });
 
-    const allShown = [];
+    // Scheduled cron runs at a fixed UTC time; convert to the viewer's local
+    // minutes-since-midnight so the horizontal line aligns with the y-axis.
+    const schedRef = new Date();
+    schedRef.setUTCHours(DAILY_CRON_UTC_HOUR, DAILY_CRON_UTC_MINUTE, 0, 0);
+    const scheduledMinutes = schedRef.getHours() * 60 + schedRef.getMinutes();
+
+    const allShown = [scheduledMinutes];
     for (const s of stats) {
       if (!s) continue;
       allShown.push(s.whiskerLo, s.whiskerHi, ...s.outliers);
@@ -627,22 +633,43 @@
     xAxis.setAttribute('class', 'axis-line');
     svg.appendChild(xAxis);
 
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    // Horizontal line at the scheduled cron time
+    const schedY = yFor(scheduledMinutes);
+    const schedLine = document.createElementNS(SVG_NS, 'line');
+    schedLine.setAttribute('x1', PAD.left);
+    schedLine.setAttribute('x2', W - PAD.right);
+    schedLine.setAttribute('y1', schedY);
+    schedLine.setAttribute('y2', schedY);
+    schedLine.setAttribute('class', 'sched-line');
+    svg.appendChild(schedLine);
+
+    const schedLabel = document.createElementNS(SVG_NS, 'text');
+    schedLabel.setAttribute('x', W - PAD.right - 4);
+    schedLabel.setAttribute('y', schedY - 4);
+    schedLabel.setAttribute('text-anchor', 'end');
+    schedLabel.setAttribute('class', 'sched-label');
+    schedLabel.textContent = `scheduled ${fmtMins(scheduledMinutes)}`;
+    svg.appendChild(schedLabel);
+
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    // Map display index 0..6 to JS weekday (Sun=0..Sat=6) so Sunday lands last.
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0];
     const groupW = plotW / 7;
     const boxW = Math.min(groupW * 0.55, 64);
 
     for (let i = 0; i < 7; i++) {
       const cx = PAD.left + groupW * (i + 0.5);
+      const dow = dayOrder[i];
 
       const label = document.createElementNS(SVG_NS, 'text');
       label.setAttribute('x', cx);
       label.setAttribute('y', H - PAD.bottom + 16);
       label.setAttribute('text-anchor', 'middle');
       label.setAttribute('class', 'axis-text');
-      label.textContent = stats[i] ? `${dayNames[i]} (${stats[i].count})` : `${dayNames[i]}`;
+      label.textContent = stats[dow] ? `${dayNames[i]} (${stats[dow].count})` : `${dayNames[i]}`;
       svg.appendChild(label);
 
-      const s = stats[i];
+      const s = stats[dow];
       if (!s) continue;
 
       const xL = cx - boxW / 2;
