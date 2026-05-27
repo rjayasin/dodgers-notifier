@@ -273,10 +273,11 @@
       hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
     });
     const now = new Date();
-    const isToday = d.getFullYear() === now.getFullYear()
-      && d.getMonth() === now.getMonth()
-      && d.getDate() === now.getDate();
-    if (isToday) return `Today ${time}`;
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayDiff = Math.round((startOfToday - startOfDate) / 86400000);
+    if (dayDiff === 0) return `Today ${time}`;
+    if (dayDiff === 1) return `Yesterday ${time}`;
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
