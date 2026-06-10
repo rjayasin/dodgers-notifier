@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 DODGERS_TEAM_ID = 119
 DODGER_STADIUM_VENUE_ID = 22
 MLB_SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule"
+MLB_SEASONS_URL = "https://statsapi.mlb.com/api/v1/seasons"
 PT = ZoneInfo("America/Los_Angeles")
 
 SMS_CHUNK_LIMIT = 140  # UCS-2 limit (emojis) is 70 chars/segment; gateways often truncate
@@ -116,6 +117,33 @@ def get_week_range() -> tuple[str, str]:
     return monday.strftime("%Y-%m-%d"), sunday.strftime("%Y-%m-%d")
 
 
+def is_in_season(week_start: str, week_end: str) -> bool:
+    """True if the Mon-Sun week overlaps the MLB season (regular season through postseason).
+
+    Gates the "no games this week" SMS so it isn't sent every week of the offseason.
+    Spring training weeks count as offseason since Dodger Stadium hosts no games then.
+    """
+    url = f"{MLB_SEASONS_URL}?sportId=1&season={week_start[:4]}"
+    with urllib.request.urlopen(url, timeout=10) as resp:
+        seasons = json.loads(resp.read()).get("seasons", [])
+    if not seasons:
+        return False
+    season = seasons[0]
+    start = season.get("regularSeasonStartDate") or season.get("seasonStartDate")
+    end = season.get("postSeasonEndDate") or season.get("seasonEndDate")
+    if not (start and end):
+        return False
+    return week_start <= end and week_end >= start
+
+
+def format_week_range(start_date: str, end_date: str) -> str:
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    if start.month == end.month:
+        return f"{start.strftime('%b %-d')}–{end.strftime('%-d')}"
+    return f"{start.strftime('%b %-d')}–{end.strftime('%b %-d')}"
+
+
 def parse_home_games(data: dict) -> list[dict]:
     games = []
     for date_entry in data.get("dates", []):
@@ -135,9 +163,7 @@ def format_game_line(game: dict) -> str:
 
 def build_chunks(start_date: str, end_date: str, games: list[dict]) -> list[str]:
     """Split the weekly summary into SMS-safe chunks of at most SMS_CHUNK_LIMIT chars."""
-    start = datetime.strptime(start_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
-    header = f"{len(games)} Dodgers games this week\n⚾ {start.strftime('%b %-d')}–{end.strftime('%-d')}"
+    header = f"{len(games)} Dodgers games this week\n⚾ {format_week_range(start_date, end_date)}"
 
     game_lines = [format_game_line(g) for g in games]
 
@@ -179,6 +205,18 @@ def weekly() -> None:
 
     if not games:
         print("No Dodgers home games this week.")
+        try:
+            in_season = is_in_season(start_date, end_date)
+        except Exception as e:
+            print(f"Warning: could not determine season window ({e}); skipping SMS.", file=sys.stderr)
+            return
+        if not in_season:
+            print("Offseason week — skipping SMS.")
+            return
+        message = f"No Dodgers home games this week\n⚾ {format_week_range(start_date, end_date)}"
+        print(f"Sending SMS:\n{message}")
+        send_sms(message, gmail_address, app_password, sms_address)
+        print("SMS sent.")
         return
 
     chunks = build_chunks(start_date, end_date, games)
