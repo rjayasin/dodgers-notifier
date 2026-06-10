@@ -213,7 +213,7 @@ def weekly() -> None:
         if not in_season:
             print("Offseason week — skipping SMS.")
             return
-        message = f"No Dodgers home games this week\n⚾ {format_week_range(start_date, end_date)}"
+        message = f"No Dodgers home games this week ({format_week_range(start_date, end_date)})"
         print(f"Sending SMS:\n{message}")
         send_sms(message, gmail_address, app_password, sms_address)
         print("SMS sent.")
