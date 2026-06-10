@@ -22,6 +22,8 @@ Everything lives in a single script, `notifier.py`, with two subcommands:
 2. The script fetches the Dodgers schedule for the upcoming Monday–Sunday week.
 3. All home games are collected and formatted into a summary.
 4. Long messages are automatically **split into SMS-safe chunks** (max 140 characters each) and labeled (e.g. "1/3", "2/3") so they arrive in order.
+5. If there are **no home games that week**, you get a single "No Dodgers home games this week" text instead.
+6. An **offseason gate** skips that text outside the MLB season (Opening Day through the postseason), so you aren't texted "no games" all winter.
 
 ### How SMS delivery works
 
