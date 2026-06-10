@@ -13,8 +13,8 @@ MLB_SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 MLB_SEASONS_URL = "https://statsapi.mlb.com/api/v1/seasons"
 PT = ZoneInfo("America/Los_Angeles")
 
-SMS_CHUNK_LIMIT = 140  # Gateways often truncate near the 160-char GSM-7 segment limit;
-                       # 140 is a safe budget that fits in a single segment.
+SMS_CHUNK_LIMIT = 140  # UCS-2 limit (emojis) is 70 chars/segment; gateways often truncate
+                       # at 160 bytes. 140 is a safe budget that fits in a single segment.
 _LABEL_OVERHEAD = 8   # Reserve space for "(N/N) " label, e.g. "(12/12) " = 8 chars
 
 
@@ -140,8 +140,8 @@ def format_week_range(start_date: str, end_date: str) -> str:
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(end_date, "%Y-%m-%d")
     if start.month == end.month:
-        return f"{start.strftime('%b %-d')}-{end.strftime('%-d')}"
-    return f"{start.strftime('%b %-d')}-{end.strftime('%b %-d')}"
+        return f"{start.strftime('%b %-d')}–{end.strftime('%-d')}"
+    return f"{start.strftime('%b %-d')}–{end.strftime('%b %-d')}"
 
 
 def parse_home_games(data: dict) -> list[dict]:
@@ -158,12 +158,12 @@ def format_game_line(game: dict) -> str:
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
     start_time = game_time.strftime("%-I:%M %p PT")
-    return f"{day} vs {opponent}, {start_time}"
+    return f"{day}  🆚 {opponent}  ⏰ {start_time}"
 
 
 def build_chunks(start_date: str, end_date: str, games: list[dict]) -> list[str]:
     """Split the weekly summary into SMS-safe chunks of at most SMS_CHUNK_LIMIT chars."""
-    header = f"{len(games)} Dodgers games this week ({format_week_range(start_date, end_date)})"
+    header = f"{len(games)} Dodgers games this week\n⚾ {format_week_range(start_date, end_date)}"
 
     game_lines = [format_game_line(g) for g in games]
 
