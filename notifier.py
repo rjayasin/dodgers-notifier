@@ -13,10 +13,6 @@ MLB_SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 MLB_SEASONS_URL = "https://statsapi.mlb.com/api/v1/seasons"
 PT = ZoneInfo("America/Los_Angeles")
 
-SMS_CHUNK_LIMIT = 140  # UCS-2 limit (emojis) is 70 chars/segment; gateways often truncate
-                       # at 160 bytes. 140 is a safe budget that fits in a single segment.
-_LABEL_OVERHEAD = 8   # Reserve space for "(N/N) " label, e.g. "(12/12) " = 8 chars
-
 
 # ── Shared helpers ──────────────────────────────────────────────────
 
@@ -28,26 +24,27 @@ def fetch_schedule(**params: str) -> dict:
         return json.loads(resp.read())
 
 
-def send_sms(body: str, gmail_address: str, app_password: str, sms_address: str) -> None:
+def send_email(subject: str, body: str, gmail_address: str, app_password: str, to_address: str) -> None:
     msg = MIMEText(body)
     msg["From"] = gmail_address
-    msg["To"] = sms_address
-    msg["Subject"] = ""
+    msg["To"] = to_address
+    msg["Subject"] = subject
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(gmail_address, app_password)
-        server.sendmail(gmail_address, sms_address, msg.as_string())
+        server.sendmail(gmail_address, to_address, msg.as_string())
 
 
 def load_config() -> tuple[str, str, str]:
     gmail_address = os.environ.get("GMAIL_ADDRESS")
     app_password = os.environ.get("GMAIL_APP_PASSWORD")
-    sms_address = os.environ.get("SMS_ADDRESS")
+    # Defaults to sending the notification to the same Gmail account it's sent from.
+    notify_email = os.environ.get("NOTIFY_EMAIL") or gmail_address
 
-    if not all([gmail_address, app_password, sms_address]):
-        print("Error: GMAIL_ADDRESS, GMAIL_APP_PASSWORD, and SMS_ADDRESS must be set.", file=sys.stderr)
+    if not all([gmail_address, app_password]):
+        print("Error: GMAIL_ADDRESS and GMAIL_APP_PASSWORD must be set.", file=sys.stderr)
         sys.exit(1)
 
-    return gmail_address, app_password, sms_address
+    return gmail_address, app_password, notify_email
 
 
 def is_home_game(game: dict) -> bool:
@@ -81,7 +78,7 @@ def format_message(game: dict) -> str:
 
 
 def daily() -> None:
-    gmail_address, app_password, sms_address = load_config()
+    gmail_address, app_password, notify_email = load_config()
 
     date = get_today_pt()
     print(f"Checking MLB schedule for {date}...")
@@ -100,9 +97,9 @@ def daily() -> None:
 
     for game in home_games:
         message = format_message(game)
-        print(f"Home game found! Sending SMS:\n{message}")
-        send_sms(message, gmail_address, app_password, sms_address)
-        print("SMS sent.")
+        print(f"Home game found! Sending email:\n{message}")
+        send_email(f"⚾ {message}", message, gmail_address, app_password, notify_email)
+        print("Email sent.")
 
 
 # ── Weekly schedule ─────────────────────────────────────────────────
@@ -120,7 +117,7 @@ def get_week_range() -> tuple[str, str]:
 def is_in_season(week_start: str, week_end: str) -> bool:
     """True if the Mon-Sun week overlaps the MLB season (regular season through postseason).
 
-    Gates the "no games this week" SMS so it isn't sent every week of the offseason.
+    Gates the "no games this week" email so it isn't sent every week of the offseason.
     Spring training weeks count as offseason since Dodger Stadium hosts no games then.
     """
     url = f"{MLB_SEASONS_URL}?sportId=1&season={week_start[:4]}"
@@ -161,36 +158,8 @@ def format_game_line(game: dict) -> str:
     return f"{day}  🆚 {opponent}  ⏰ {start_time}"
 
 
-def build_chunks(start_date: str, end_date: str, games: list[dict]) -> list[str]:
-    """Split the weekly summary into SMS-safe chunks of at most SMS_CHUNK_LIMIT chars."""
-    header = f"{len(games)} Dodgers games this week\n⚾ {format_week_range(start_date, end_date)}"
-
-    game_lines = [format_game_line(g) for g in games]
-
-    # Reserve label overhead upfront so every chunk stays within the limit after labeling.
-    limit = SMS_CHUNK_LIMIT - _LABEL_OVERHEAD
-
-    chunks = []
-    current = header
-    for line in game_lines:
-        candidate = current + "\n" + line
-        if len(candidate) > limit:
-            chunks.append(current)
-            current = line
-        else:
-            current = candidate
-    chunks.append(current)
-
-    # Label multi-part messages so they arrive in order (e.g. "(1/3)", "(2/3)")
-    if len(chunks) > 1:
-        total = len(chunks)
-        chunks = [f"({i + 1}/{total}) {chunk}" for i, chunk in enumerate(chunks)]
-
-    return chunks
-
-
 def weekly() -> None:
-    gmail_address, app_password, sms_address = load_config()
+    gmail_address, app_password, notify_email = load_config()
 
     start_date, end_date = get_week_range()
     print(f"Fetching Dodgers schedule for {start_date} to {end_date}...")
@@ -202,28 +171,29 @@ def weekly() -> None:
         sys.exit(1)
 
     games = parse_home_games(data)
+    week_range = format_week_range(start_date, end_date)
 
     if not games:
         print("No Dodgers home games this week.")
         try:
             in_season = is_in_season(start_date, end_date)
         except Exception as e:
-            print(f"Warning: could not determine season window ({e}); skipping SMS.", file=sys.stderr)
+            print(f"Warning: could not determine season window ({e}); skipping email.", file=sys.stderr)
             return
         if not in_season:
-            print("Offseason week — skipping SMS.")
+            print("Offseason week — skipping email.")
             return
-        message = f"No Dodgers home games this week ({format_week_range(start_date, end_date)})"
-        print(f"Sending SMS:\n{message}")
-        send_sms(message, gmail_address, app_password, sms_address)
-        print("SMS sent.")
+        subject = f"⚾ No Dodgers home games this week ({week_range})"
+        print(f"Sending email:\n{subject}")
+        send_email(subject, f"No Dodgers home games this week ({week_range}).", gmail_address, app_password, notify_email)
+        print("Email sent.")
         return
 
-    chunks = build_chunks(start_date, end_date, games)
-    for i, chunk in enumerate(chunks):
-        print(f"Sending SMS {i + 1}/{len(chunks)}:\n{chunk}")
-        send_sms(chunk, gmail_address, app_password, sms_address)
-    print(f"Sent {len(chunks)} SMS.")
+    subject = f"⚾ {len(games)} Dodgers home games this week ({week_range})"
+    body = "\n".join(format_game_line(g) for g in games)
+    print(f"Sending email:\n{subject}\n{body}")
+    send_email(subject, body, gmail_address, app_password, notify_email)
+    print("Email sent.")
 
 
 # ── CLI entry point ─────────────────────────────────────────────────
