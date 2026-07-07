@@ -330,7 +330,9 @@
       );
       if (!res.ok) throw new Error(`GitHub API ${res.status}: ${res.statusText}`);
       const data = await res.json();
-      const runs = (data.workflow_runs || []).filter(r => !EXCLUDED_WORKFLOWS.has(r.name));
+      const runs = (data.workflow_runs || []).filter(
+        r => !EXCLUDED_WORKFLOWS.has(r.name) && r.event !== 'workflow_dispatch'
+      );
       render(runs);
     } catch (e) {
       document.getElementById('status').innerHTML =
