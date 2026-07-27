@@ -4,7 +4,9 @@ import smtplib
 import sys
 import urllib.request
 from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 from zoneinfo import ZoneInfo
 
 DODGERS_TEAM_ID = 119
@@ -24,8 +26,20 @@ def fetch_schedule(**params: str) -> dict:
         return json.loads(resp.read())
 
 
-def send_email(subject: str, body: str, gmail_address: str, app_password: str, to_address: str) -> None:
-    msg = MIMEText(body)
+def send_email(
+    subject: str,
+    body: str,
+    gmail_address: str,
+    app_password: str,
+    to_address: str,
+    html_body: str | None = None,
+) -> None:
+    if html_body:
+        msg = MIMEMultipart("alternative")
+        msg.attach(MIMEText(body, "plain"))
+        msg.attach(MIMEText(html_body, "html"))
+    else:
+        msg = MIMEText(body)
     msg["From"] = gmail_address
     msg["To"] = to_address
     msg["Subject"] = subject
@@ -150,12 +164,40 @@ def parse_home_games(data: dict) -> list[dict]:
     return games
 
 
-def format_game_line(game: dict) -> str:
+def game_columns(game: dict) -> tuple[str, str, str]:
+    """Split a game into its (day, opponent, start time) columns."""
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
     start_time = game_time.strftime("%-I:%M %p PT")
-    return f"{day}  🆚 {opponent}  ⏰ {start_time}"
+    return day, opponent, start_time
+
+
+def format_schedule_text(games: list[dict]) -> str:
+    """Plain-text schedule, columns padded so they line up in a monospace client."""
+    rows = [game_columns(g) for g in games]
+    day_width = max(len(day) for day, _, _ in rows)
+    opponent_width = max(len(opponent) for _, opponent, _ in rows)
+    return "\n".join(
+        f"{day:<{day_width}}  🆚 {opponent:<{opponent_width}}  ⏰ {start_time}"
+        for day, opponent, start_time in rows
+    )
+
+
+def format_schedule_html(games: list[dict]) -> str:
+    """HTML schedule as a table, so columns line up in a proportional font too."""
+    cell = 'style="padding:2px 14px 2px 0;white-space:nowrap"'
+    rows = "".join(
+        f"<tr><td {cell}>{escape(day)}</td>"
+        f"<td {cell}>🆚 {escape(opponent)}</td>"
+        f"<td {cell}>⏰ {escape(start_time)}</td></tr>"
+        for day, opponent, start_time in (game_columns(g) for g in games)
+    )
+    return (
+        '<html><body style="font-family:Arial,Helvetica,sans-serif;font-size:15px">'
+        f'<table cellpadding="0" cellspacing="0">{rows}</table>'
+        "</body></html>"
+    )
 
 
 def weekly() -> None:
@@ -190,9 +232,9 @@ def weekly() -> None:
         return
 
     subject = f"⚾ {len(games)} Dodgers home games this week ({week_range})"
-    body = "\n".join(format_game_line(g) for g in games)
+    body = format_schedule_text(games)
     print(f"Sending email:\n{subject}\n{body}")
-    send_email(subject, body, gmail_address, app_password, notify_email)
+    send_email(subject, body, gmail_address, app_password, notify_email, html_body=format_schedule_html(games))
     print("Email sent.")
 
 
