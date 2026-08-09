@@ -18,7 +18,7 @@ Everything lives in a single script, `notifier.py`, with two subcommands:
 
 ### Weekly schedule (`python notifier.py weekly`)
 
-1. **GitHub Actions cron** triggers the workflow at 4:00 PM PDT / 3:00 PM PST every Sunday.
+1. **GitHub Actions cron** triggers the workflow at 9:00 AM PDT / 8:00 AM PST every Saturday.
 2. The script fetches the Dodgers schedule for the upcoming Monday–Sunday week.
 3. All home games are collected and formatted into a **single email** — the game count and week range in the subject line, one line per game in the body.
 4. If there are **no home games that week**, you get a "No Dodgers home games this week" email instead.
@@ -72,7 +72,7 @@ In your GitHub repo:
 
 1. Go to the **Actions** tab in your repo.
 2. If prompted with "Workflows aren't running", click **I understand my workflows, go ahead and enable them**.
-3. Both workflows — **Dodgers Daily Check** (daily) and **Dodgers Weekly Schedule** (Sunday) — will start running on their cron schedules automatically.
+3. Both workflows — **Dodgers Daily Check** (daily) and **Dodgers Weekly Schedule** (Saturday) — will start running on their cron schedules automatically.
 
 ### 6. Test it
 

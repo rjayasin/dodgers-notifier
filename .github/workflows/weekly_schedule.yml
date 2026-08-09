@@ -2,7 +2,7 @@ name: Dodgers Weekly Schedule
 
 on:
   schedule:
-    - cron: '0 23 * * 0'  # 4:00 PM PDT (UTC-7) / 3:00 PM PST (UTC-8) every Sunday
+    - cron: '0 16 * * 6'  # 9:00 AM PDT (UTC-7) / 8:00 AM PST (UTC-8) every Saturday
   workflow_dispatch:       # Allows manual trigger from the Actions tab
 
 jobs:
