@@ -169,7 +169,7 @@ def game_columns(game: dict) -> tuple[str, str, str]:
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
-    start_time = game_time.strftime("%-I:%M %p PT")
+    start_time = game_time.strftime("%-I:%M %p")
     return day, opponent, start_time
 
 
@@ -179,23 +179,32 @@ def format_schedule_text(games: list[dict]) -> str:
     day_width = max(len(day) for day, _, _ in rows)
     opponent_width = max(len(opponent) for _, opponent, _ in rows)
     return "\n".join(
-        f"{day:<{day_width}}  🆚 {opponent:<{opponent_width}}  ⏰ {start_time}"
+        f"{day:<{day_width}}  🆚 {opponent:<{opponent_width}}  {start_time}"
         for day, opponent, start_time in rows
     )
 
 
 def format_schedule_html(games: list[dict]) -> str:
-    """HTML schedule as a table, so columns line up in a proportional font too."""
-    cell = 'style="padding:2px 14px 2px 0;white-space:nowrap"'
+    """HTML schedule table; viewport meta and text-size-adjust stop mobile font boosting."""
+    cell = 'style="padding:3px 8px 3px 0;white-space:nowrap"'
     rows = "".join(
         f"<tr><td {cell}>{escape(day)}</td>"
         f"<td {cell}>🆚 {escape(opponent)}</td>"
-        f"<td {cell}>⏰ {escape(start_time)}</td></tr>"
+        f"<td {cell}>{escape(start_time)}</td></tr>"
         for day, opponent, start_time in (game_columns(g) for g in games)
     )
+    body_style = (
+        "margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;"
+        "-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%"
+    )
     return (
-        '<html><body style="font-family:Arial,Helvetica,sans-serif;font-size:15px">'
-        f'<table cellpadding="0" cellspacing="0">{rows}</table>'
+        "<html><head>"
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        "</head>"
+        f'<body style="{body_style}">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" '
+        'border="0" style="border-collapse:collapse">'
+        f"{rows}</table>"
         "</body></html>"
     )
 
