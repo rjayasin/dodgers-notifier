@@ -5,6 +5,9 @@ on:
     - cron: '0 23 * * 0'  # 4:00 PM PDT (UTC-7) / 3:00 PM PST (UTC-8) every Sunday
   workflow_dispatch:       # Allows manual trigger from the Actions tab
 
+permissions:
+  contents: write  # Commits the refreshed docs/schedule.json back to main
+
 jobs:
   weekly-schedule:
     runs-on: ubuntu-latest
@@ -22,3 +25,19 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
         run: python notifier.py weekly
+
+      # The script writes docs/schedule.json before it emails, so publish the
+      # dashboard data even if the SMTP step failed.
+      - name: Commit schedule for the dashboard
+        if: ${{ !cancelled() }}
+        run: |
+          # git status catches the first run too, when the file is still untracked.
+          if [ -z "$(git status --porcelain docs/schedule.json)" ]; then
+            echo "Schedule unchanged — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/schedule.json
+          git commit -m "Update weekly home game schedule"
+          git push

@@ -23,6 +23,7 @@ Everything lives in a single script, `notifier.py`, with two subcommands:
 3. All home games are collected and formatted into a **single email** — the game count and week range in the subject line, one line per game in the body.
 4. If there are **no home games that week**, you get a "No Dodgers home games this week" email instead.
 5. An **offseason gate** skips that email outside the MLB season (Opening Day through the postseason), so you aren't emailed "no games" all winter.
+6. The current week and the coming one are written to `docs/schedule.json` and committed back to `main` — that's what the [dashboard](#dashboard) shows at the top of the page. The file is written before the email branches, so the dashboard refreshes even on weeks that send no email.
 
 ### How delivery works
 
@@ -61,6 +62,39 @@ The weekly email is sent as both HTML and plain text. The HTML part renders the 
 > No Dodgers home games this week (Aug 10–16).
 
 > **Why not SMS?** Earlier versions texted via carrier email-to-SMS gateways (e.g. `@vtext.com`). Carriers are shutting those gateways down — Verizon retires `vtext.com`/`vzwpix.com` by March 31, 2027, and delivery is already unreliable, with messages arriving late, out of order, or not at all. Email is dependable and has no length limits. To get phone notifications, enable push notifications in the Gmail app for the recipient address (a Gmail filter can label these emails so you can create a distinct alert for them).
+
+---
+
+## Dashboard
+
+[rjayasin.github.io/dodgers-notifier](https://rjayasin.github.io/dodgers-notifier) is a static page served from `docs/` by the **Deploy GitHub Pages** workflow.
+
+**Home game schedule** (top of the page) comes from `docs/schedule.json`, which `python notifier.py weekly` writes and the weekly workflow commits back to `main`:
+
+```json
+{
+  "generated_at": "2026-08-09T23:00:12Z",
+  "weeks": [
+    {
+      "start": "2026-08-10",
+      "end": "2026-08-16",
+      "range": "Aug 10–16",
+      "games": [
+        { "date": "2026-08-10", "day": "Mon 8/10", "time": "7:10 PM", "opponent": "Kansas City Royals" }
+      ]
+    },
+    { "start": "2026-08-17", "end": "2026-08-23", "range": "Aug 17–23", "games": [] }
+  ]
+}
+```
+
+Two weeks are published — the current one and the coming one the email covers — and the dashboard shows whichever contains today. That keeps the card on the **current** week all week rather than jumping ahead the moment Sunday's run lands, and leaves a fallback week if a Sunday run is ever missed.
+
+Within that week, today's game is highlighted and games already played are greyed out, both judged against the current Pacific date. Start times are pre-formatted in Pacific rather than rendered from a timestamp, so first pitch reads the same wherever the page is opened.
+
+**Workflow run stats and charts** below it are fetched live from the GitHub REST API in the browser; nothing about them is committed. Manually triggered (`workflow_dispatch`) runs are excluded so they don't skew the completion-time charts.
+
+Pages deploys on any push touching `docs/**`, and also when the weekly workflow completes — a push made with the workflow's `GITHUB_TOKEN` deliberately does not trigger `push` workflows, so the schedule commit needs that second trigger to reach the site.
 
 ---
 

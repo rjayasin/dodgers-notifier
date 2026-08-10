@@ -3,7 +3,7 @@ import os
 import smtplib
 import sys
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from html import escape
@@ -14,6 +14,8 @@ DODGER_STADIUM_VENUE_ID = 22
 MLB_SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 MLB_SEASONS_URL = "https://statsapi.mlb.com/api/v1/seasons"
 PT = ZoneInfo("America/Los_Angeles")
+# The Pages dashboard reads this file; the weekly workflow commits it back to the repo.
+SCHEDULE_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "schedule.json")
 
 
 # ── Shared helpers ──────────────────────────────────────────────────
@@ -164,13 +166,27 @@ def parse_home_games(data: dict) -> list[dict]:
     return games
 
 
-def game_columns(game: dict) -> tuple[str, str, str]:
-    """Split a game into its (day, start time, opponent) columns."""
-    opponent = game["teams"]["away"]["team"]["name"]
+def game_date_pt(game: dict) -> str:
+    """The game's date at Dodger Stadium, as YYYY-MM-DD."""
+    return datetime.fromisoformat(game["gameDate"]).astimezone(PT).strftime("%Y-%m-%d")
+
+
+def schedule_entry(game: dict) -> dict:
+    """One game, formatted for display. Start times are rendered in Pacific so
+    first pitch reads as announced rather than in the reader's own timezone."""
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
-    day = game_time.strftime("%a %-m/%-d")
-    start_time = game_time.strftime("@ %-I:%M %p")
-    return day, start_time, opponent
+    return {
+        "date": game_time.strftime("%Y-%m-%d"),
+        "day": game_time.strftime("%a %-m/%-d"),
+        "time": game_time.strftime("%-I:%M %p"),
+        "opponent": game["teams"]["away"]["team"]["name"],
+    }
+
+
+def game_columns(game: dict) -> tuple[str, str, str]:
+    """Split a game into its (day, start time, opponent) email columns."""
+    entry = schedule_entry(game)
+    return entry["day"], f"@ {entry['time']}", entry["opponent"]
 
 
 def format_schedule_text(games: list[dict]) -> str:
@@ -216,19 +232,64 @@ def format_schedule_html(games: list[dict]) -> str:
     )
 
 
+def write_schedule_json(window_start: str, games: list[dict]) -> None:
+    """Write docs/schedule.json — the home games behind the Pages dashboard.
+
+    Both the current week and the coming one are published, starting from the
+    Monday given in window_start. The dashboard shows whichever contains today,
+    so it spends the whole week on the current week rather than jumping ahead
+    the moment Sunday's run lands — and a missed run still leaves it a week to
+    fall back on.
+    """
+    path = os.environ.get("SCHEDULE_JSON_PATH", SCHEDULE_JSON_PATH)
+    entries = [schedule_entry(g) for g in games]
+
+    monday = datetime.strptime(window_start, "%Y-%m-%d").date()
+    weeks = []
+    for offset in (0, 7):
+        start = (monday + timedelta(days=offset)).strftime("%Y-%m-%d")
+        end = (monday + timedelta(days=offset + 6)).strftime("%Y-%m-%d")
+        weeks.append({
+            "start": start,
+            "end": end,
+            "range": format_week_range(start, end),
+            "games": [e for e in entries if start <= e["date"] <= end],
+        })
+
+    payload = {
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "weeks": weeks,
+    }
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    counts = ", ".join(f"{w['range']}: {len(w['games'])}" for w in weeks)
+    print(f"Wrote {path} ({counts})")
+
+
 def weekly() -> None:
     gmail_address, app_password, notify_email = load_config()
 
     start_date, end_date = get_week_range()
-    print(f"Fetching Dodgers schedule for {start_date} to {end_date}...")
+    # The dashboard needs the current week too, so fetch from this week's Monday
+    # and let the email take its slice of the result.
+    today = datetime.now(PT).date()
+    window_start = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+    print(f"Fetching Dodgers schedule for {window_start} to {end_date}...")
 
     try:
-        data = fetch_schedule(startDate=start_date, endDate=end_date)
+        data = fetch_schedule(startDate=window_start, endDate=end_date)
     except Exception as e:
         print(f"Error fetching MLB schedule: {e}", file=sys.stderr)
         sys.exit(1)
 
-    games = parse_home_games(data)
+    window_games = parse_home_games(data)
+    # Written before the email branches so the dashboard is refreshed even on
+    # weeks where no email goes out (no home games, or the offseason gate).
+    write_schedule_json(window_start, window_games)
+
+    games = [g for g in window_games if start_date <= game_date_pt(g) <= end_date]
     week_range = format_week_range(start_date, end_date)
 
     if not games:

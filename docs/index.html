@@ -32,6 +32,75 @@
       color: #8b949e;
     }
 
+    .schedule-wrap {
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1rem 1.25rem 1.1rem;
+    }
+
+    .schedule-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+
+    .schedule-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .schedule-updated {
+      font-size: 0.75rem;
+      color: #8b949e;
+    }
+
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .schedule-table td {
+      padding: 0.4rem 0.75rem 0.4rem 0;
+      border-bottom: 1px solid #21262d;
+      white-space: nowrap;
+    }
+
+    .schedule-table tr:last-child td { border-bottom: none; }
+
+    .schedule-day { color: #e6edf3; font-weight: 500; }
+    .schedule-time { color: #8b949e; text-align: right; font-variant-numeric: tabular-nums; }
+    .schedule-opponent { width: 100%; white-space: normal; }
+    .schedule-vs { color: #8b949e; }
+
+    .schedule-table tr.past td { opacity: 0.45; }
+
+    .schedule-table tr.today .schedule-day,
+    .schedule-table tr.today .schedule-time { color: #e3b341; }
+
+    .today-tag {
+      display: inline-block;
+      margin-left: 0.5rem;
+      padding: 0.1em 0.5em;
+      border-radius: 999px;
+      background: #2d2208;
+      color: #e3b341;
+      font-size: 0.7rem;
+      font-weight: 500;
+    }
+
+    .schedule-empty {
+      font-size: 0.875rem;
+      color: #8b949e;
+    }
+
     .stat-bar {
       max-width: 900px;
       margin: 0 auto 1.5rem;
@@ -186,6 +255,15 @@
   <p>Recent GitHub Actions runs for <a href="https://github.com/rjayasin/dodgers-notifier" style="color:#58a6ff;text-decoration:none">rjayasin/dodgers-notifier</a></p>
 </header>
 
+<div class="schedule-wrap" id="schedule-wrap" style="display:none">
+  <div class="schedule-head">
+    <div class="schedule-title" id="schedule-title">Dodger Stadium home games</div>
+    <div class="schedule-updated" id="schedule-updated"></div>
+  </div>
+  <table class="schedule-table"><tbody id="schedule-body"></tbody></table>
+  <div class="schedule-empty" id="schedule-empty" style="display:none"></div>
+</div>
+
 <div class="stat-bar" id="stats" style="display:none">
   <div class="stat">
     <div class="stat-label">Runs shown</div>
@@ -320,6 +398,101 @@
   function badgeLabel(run) {
     if (run.status !== 'completed') return run.status;
     return run.conclusion || run.status;
+  }
+
+  // Today's date in Pacific (YYYY-MM-DD). Game dates are stadium-local, so the
+  // viewer's own timezone must not decide which row counts as today.
+  function todayPT() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  }
+
+  // schedule.json is written by `notifier.py weekly` and committed by the
+  // Dodgers Weekly Schedule workflow every Sunday.
+  async function loadSchedule() {
+    try {
+      const res = await fetch('schedule.json', { cache: 'no-store' });
+      if (!res.ok) return;  // Not published yet — leave the card hidden.
+      renderSchedule(await res.json());
+    } catch (e) {
+      // A missing or malformed schedule shouldn't block the run dashboard below.
+    }
+  }
+
+  // The weekly run publishes the current week and the coming one. Show the week
+  // today falls in; only if a run was missed does neither match, and then the
+  // nearest week — upcoming if there is one, otherwise the most recent — stands in.
+  function pickWeek(weeks, today) {
+    return weeks.find(w => today >= w.start && today <= w.end)
+        || weeks.find(w => w.start > today)
+        || weeks[weeks.length - 1];
+  }
+
+  function renderSchedule(data) {
+    const week = pickWeek(data.weeks || [], todayPT());
+    if (!week) return;
+
+    const games = week.games || [];
+    const today = todayPT();
+    const range = week.range ? ` (${week.range})` : '';
+
+    let heading, when;
+    if (today < week.start) {
+      heading = `Home games next week${range}`;
+      when = 'next week';
+    } else if (today > week.end) {
+      heading = `Home games${range}`;
+      when = 'that week';
+    } else {
+      heading = `Home games this week${range}`;
+      when = 'this week';
+    }
+
+    document.getElementById('schedule-title').textContent = heading;
+    document.getElementById('schedule-updated').textContent =
+      data.generated_at ? `Updated ${fmtDate(data.generated_at)}` : '';
+
+    const tbody = document.getElementById('schedule-body');
+    const empty = document.getElementById('schedule-empty');
+    tbody.innerHTML = '';
+
+    if (!games.length) {
+      empty.textContent = `No Dodgers home games ${when}.`;
+      empty.style.display = '';
+    } else {
+      empty.style.display = 'none';
+      for (const g of games) {
+        const tr = document.createElement('tr');
+        if (g.date === today) tr.className = 'today';
+        else if (g.date < today) tr.className = 'past';
+
+        const day = document.createElement('td');
+        day.className = 'schedule-day';
+        day.textContent = g.day;
+
+        const time = document.createElement('td');
+        time.className = 'schedule-time';
+        time.textContent = `@ ${g.time}`;
+
+        const vs = document.createElement('span');
+        vs.className = 'schedule-vs';
+        vs.textContent = 'vs ';
+
+        const opponent = document.createElement('td');
+        opponent.className = 'schedule-opponent';
+        opponent.append(vs, g.opponent);
+        if (g.date === today) {
+          const tag = document.createElement('span');
+          tag.className = 'today-tag';
+          tag.textContent = 'Today';
+          opponent.appendChild(tag);
+        }
+
+        tr.append(day, time, opponent);
+        tbody.appendChild(tr);
+      }
+    }
+
+    document.getElementById('schedule-wrap').style.display = '';
   }
 
   async function load() {
@@ -803,6 +976,7 @@
     document.getElementById('table-wrap').style.display = '';
   }
 
+  loadSchedule();
   load();
 </script>
 </body>
