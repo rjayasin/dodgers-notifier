@@ -80,6 +80,47 @@
     .schedule-opponent { width: 100%; white-space: normal; }
     .schedule-vs { color: #8b949e; }
 
+    /* Narrow screens can't fit day + time + opponent on one line: the table's
+       minimum width overflows the card and its row borders run past the edge.
+       Stack each game into a two-line block instead, so nothing overflows and
+       the opponent name gets the full width to wrap into. */
+    @media (max-width: 560px) {
+      body { padding: 1.5rem 0.75rem; }
+
+      .schedule-wrap { padding: 0.9rem 1rem 1rem; }
+
+      .schedule-head { gap: 0.15rem 1rem; }
+
+      .schedule-table tr {
+        display: grid;
+        /* Floor the day column at the width of the longest weekday + date so the
+           times still line up down the card; it grows if a row needs more. */
+        grid-template-columns: minmax(4.5em, auto) 1fr;
+        column-gap: 0.5rem;
+        align-items: baseline;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid #21262d;
+      }
+
+      .schedule-table tr:last-child { border-bottom: none; }
+
+      .schedule-table td {
+        display: block;
+        padding: 0;
+        border-bottom: none;
+        min-width: 0;
+      }
+
+      .schedule-time { text-align: left; }
+
+      .schedule-opponent {
+        grid-column: 1 / -1;
+        width: auto;
+        margin-top: 0.2rem;
+        line-height: 1.35;
+      }
+    }
+
     .schedule-table tr.past td { opacity: 0.45; }
 
     .schedule-table tr.today .schedule-day,
