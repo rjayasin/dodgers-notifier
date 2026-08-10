@@ -169,7 +169,7 @@ def game_columns(game: dict) -> tuple[str, str, str]:
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
-    start_time = game_time.strftime("%-I:%M %p")
+    start_time = game_time.strftime("@ %-I:%M %p")
     return day, start_time, opponent
 
 
@@ -187,10 +187,13 @@ def format_schedule_text(games: list[dict]) -> str:
 
 def format_schedule_html(games: list[dict]) -> str:
     """HTML schedule table; viewport meta and text-size-adjust stop mobile font boosting."""
-    cell = "padding:3px 8px 3px 0;white-space:nowrap"
+    # The font goes on every cell, not on <body>: clients routinely strip the
+    # body tag, and without a doctype a table wouldn't inherit from it anyway.
+    font = "font-family:Arial,Helvetica,sans-serif;font-size:14px"
+    cell = f"{font};padding:3px 8px 3px 0;white-space:nowrap"
     # The last column carries no right padding — it only ate width a narrow
     # phone needs, since a 10:10 AM start pushes the widest row to the edge.
-    last_cell = "padding:3px 0;white-space:nowrap"
+    last_cell = f"{font};padding:3px 0;white-space:nowrap"
     rows = "".join(
         f'<tr><td style="{cell}">{escape(day)}</td>'
         f'<td style="{cell};text-align:right">{escape(start_time)}</td>'
@@ -198,7 +201,7 @@ def format_schedule_html(games: list[dict]) -> str:
         for day, start_time, opponent in (game_columns(g) for g in games)
     )
     body_style = (
-        "margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;"
+        f"margin:0;{font};"
         "-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%"
     )
     return (
