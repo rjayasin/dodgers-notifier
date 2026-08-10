@@ -30,6 +30,36 @@ The script **sends an email via Gmail SMTP** from your Gmail account to the addr
 
 No paid services, no third-party accounts — just a Gmail account and GitHub.
 
+### What the emails look like
+
+**Daily game-day alert** — subject and body are the same line:
+
+> **⚾ Dodgers home game at 7:10 PM PT vs Kansas City Royals**
+>
+> Dodgers home game at 7:10 PM PT vs Kansas City Royals
+
+**Weekly schedule** — the game count and week range in the subject, one line per game in the body:
+
+> **⚾ 7 Dodgers home games this week (Aug 10–16)**
+>
+> ```
+> Mon 8/10  🆚 Kansas City Royals  7:10 PM
+> Tue 8/11  🆚 Kansas City Royals  7:10 PM
+> Wed 8/12  🆚 Kansas City Royals  7:10 PM
+> Thu 8/13  🆚 Milwaukee Brewers   7:10 PM
+> Fri 8/14  🆚 Milwaukee Brewers   7:10 PM
+> Sat 8/15  🆚 Milwaukee Brewers   4:15 PM
+> Sun 8/16  🆚 Milwaukee Brewers   1:10 PM
+> ```
+
+The weekly email is sent as both HTML and plain text. The HTML part renders the schedule as a table so the columns line up in a proportional font; the plain-text part pads them to line up in a monospace client. Start times are Pacific.
+
+**Weekly schedule, no home games** — sent only during the season:
+
+> **⚾ No Dodgers home games this week (Aug 10–16)**
+>
+> No Dodgers home games this week (Aug 10–16).
+
 > **Why not SMS?** Earlier versions texted via carrier email-to-SMS gateways (e.g. `@vtext.com`). Carriers are shutting those gateways down — Verizon retires `vtext.com`/`vzwpix.com` by March 31, 2027, and delivery is already unreliable, with messages arriving late, out of order, or not at all. Email is dependable and has no length limits. To get phone notifications, enable push notifications in the Gmail app for the recipient address (a Gmail filter can label these emails so you can create a distinct alert for them).
 
 ---

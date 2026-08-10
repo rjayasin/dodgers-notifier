@@ -164,11 +164,8 @@ def parse_home_games(data: dict) -> list[dict]:
     return games
 
 
-TIMEZONE_NOTE = "All times PT"
-
-
 def game_columns(game: dict) -> tuple[str, str, str]:
-    """Split a game into (day, opponent, start time); zone omitted, see TIMEZONE_NOTE."""
+    """Split a game into its (day, opponent, start time) columns."""
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
@@ -181,11 +178,10 @@ def format_schedule_text(games: list[dict]) -> str:
     rows = [game_columns(g) for g in games]
     day_width = max(len(day) for day, _, _ in rows)
     opponent_width = max(len(opponent) for _, opponent, _ in rows)
-    lines = [
+    return "\n".join(
         f"{day:<{day_width}}  🆚 {opponent:<{opponent_width}}  {start_time}"
         for day, opponent, start_time in rows
-    ]
-    return "\n".join([*lines, "", TIMEZONE_NOTE])
+    )
 
 
 def format_schedule_html(games: list[dict]) -> str:
@@ -201,7 +197,6 @@ def format_schedule_html(games: list[dict]) -> str:
         "margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;"
         "-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%"
     )
-    note_style = "margin:8px 0 0;font-size:12px;color:#666"
     return (
         "<html><head>"
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -210,7 +205,6 @@ def format_schedule_html(games: list[dict]) -> str:
         '<table role="presentation" cellpadding="0" cellspacing="0" '
         'border="0" style="border-collapse:collapse">'
         f"{rows}</table>"
-        f'<p style="{note_style}">{TIMEZONE_NOTE}</p>'
         "</body></html>"
     )
 
