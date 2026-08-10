@@ -164,12 +164,20 @@ def parse_home_games(data: dict) -> list[dict]:
     return games
 
 
+TIMEZONE_NOTE = "All times PT"
+
+
 def game_columns(game: dict) -> tuple[str, str, str]:
-    """Split a game into its (day, opponent, start time) columns."""
+    """Split a game into its (day, opponent, start time) columns.
+
+    The zone is deliberately left off the time: repeating "PT" on every row costs
+    ~20px of width, which is the difference between fitting and wrapping on a
+    narrow phone. TIMEZONE_NOTE states it once instead.
+    """
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
-    start_time = game_time.strftime("%-I:%M %p PT")
+    start_time = game_time.strftime("%-I:%M %p")
     return day, opponent, start_time
 
 
@@ -178,24 +186,42 @@ def format_schedule_text(games: list[dict]) -> str:
     rows = [game_columns(g) for g in games]
     day_width = max(len(day) for day, _, _ in rows)
     opponent_width = max(len(opponent) for _, opponent, _ in rows)
-    return "\n".join(
-        f"{day:<{day_width}}  🆚 {opponent:<{opponent_width}}  ⏰ {start_time}"
+    lines = [
+        f"{day:<{day_width}}  🆚 {opponent:<{opponent_width}}  {start_time}"
         for day, opponent, start_time in rows
-    )
+    ]
+    return "\n".join([*lines, "", TIMEZONE_NOTE])
 
 
 def format_schedule_html(games: list[dict]) -> str:
-    """HTML schedule as a table, so columns line up in a proportional font too."""
-    cell = 'style="padding:2px 14px 2px 0;white-space:nowrap"'
+    """HTML schedule as a table, so columns line up in a proportional font too.
+
+    Kept narrow enough to fit a phone screen without wrapping: the viewport meta
+    and text-size-adjust stop mobile clients from inflating the text (font
+    boosting), which is what pushes the rows past the screen width and makes
+    them wrap despite white-space:nowrap.
+    """
+    cell = 'style="padding:3px 8px 3px 0;white-space:nowrap"'
     rows = "".join(
         f"<tr><td {cell}>{escape(day)}</td>"
         f"<td {cell}>🆚 {escape(opponent)}</td>"
-        f"<td {cell}>⏰ {escape(start_time)}</td></tr>"
+        f"<td {cell}>{escape(start_time)}</td></tr>"
         for day, opponent, start_time in (game_columns(g) for g in games)
     )
+    body_style = (
+        "margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;"
+        "-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%"
+    )
+    note_style = "margin:8px 0 0;font-size:12px;color:#666"
     return (
-        '<html><body style="font-family:Arial,Helvetica,sans-serif;font-size:15px">'
-        f'<table cellpadding="0" cellspacing="0">{rows}</table>'
+        "<html><head>"
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        "</head>"
+        f'<body style="{body_style}">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" '
+        'border="0" style="border-collapse:collapse">'
+        f"{rows}</table>"
+        f'<p style="{note_style}">{TIMEZONE_NOTE}</p>'
         "</body></html>"
     )
 
