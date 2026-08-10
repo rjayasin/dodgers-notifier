@@ -43,13 +43,13 @@ No paid services, no third-party accounts — just a Gmail account and GitHub.
 > **⚾ 7 Dodgers home games this week (Aug 10–16)**
 >
 > ```
-> Mon 8/10  🆚 Kansas City Royals  7:10 PM
-> Tue 8/11  🆚 Kansas City Royals  7:10 PM
-> Wed 8/12  🆚 Kansas City Royals  7:10 PM
-> Thu 8/13  🆚 Milwaukee Brewers   7:10 PM
-> Fri 8/14  🆚 Milwaukee Brewers   7:10 PM
-> Sat 8/15  🆚 Milwaukee Brewers   4:15 PM
-> Sun 8/16  🆚 Milwaukee Brewers   1:10 PM
+> Mon 8/10  7:10 PM  🆚 Kansas City Royals
+> Tue 8/11  7:10 PM  🆚 Kansas City Royals
+> Wed 8/12  7:10 PM  🆚 Kansas City Royals
+> Thu 8/13  7:10 PM  🆚 Milwaukee Brewers
+> Fri 8/14  7:10 PM  🆚 Milwaukee Brewers
+> Sat 8/15  4:15 PM  🆚 Milwaukee Brewers
+> Sun 8/16  1:10 PM  🆚 Milwaukee Brewers
 > ```
 
 The weekly email is sent as both HTML and plain text. The HTML part renders the schedule as a table so the columns line up in a proportional font; the plain-text part pads them to line up in a monospace client. Start times are Pacific.

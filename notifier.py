@@ -165,33 +165,37 @@ def parse_home_games(data: dict) -> list[dict]:
 
 
 def game_columns(game: dict) -> tuple[str, str, str]:
-    """Split a game into its (day, opponent, start time) columns."""
+    """Split a game into its (day, start time, opponent) columns."""
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
     start_time = game_time.strftime("%-I:%M %p")
-    return day, opponent, start_time
+    return day, start_time, opponent
 
 
 def format_schedule_text(games: list[dict]) -> str:
     """Plain-text schedule, columns padded so they line up in a monospace client."""
     rows = [game_columns(g) for g in games]
     day_width = max(len(day) for day, _, _ in rows)
-    opponent_width = max(len(opponent) for _, opponent, _ in rows)
+    # Times are right-aligned so 10:10 AM and 7:10 PM share a right edge.
+    time_width = max(len(start_time) for _, start_time, _ in rows)
     return "\n".join(
-        f"{day:<{day_width}}  🆚 {opponent:<{opponent_width}}  {start_time}"
-        for day, opponent, start_time in rows
+        f"{day:<{day_width}}  {start_time:>{time_width}}  🆚 {opponent}"
+        for day, start_time, opponent in rows
     )
 
 
 def format_schedule_html(games: list[dict]) -> str:
     """HTML schedule table; viewport meta and text-size-adjust stop mobile font boosting."""
-    cell = 'style="padding:3px 8px 3px 0;white-space:nowrap"'
+    cell = "padding:3px 8px 3px 0;white-space:nowrap"
+    # The last column carries no right padding — it only ate width a narrow
+    # phone needs, since a 10:10 AM start pushes the widest row to the edge.
+    last_cell = "padding:3px 0;white-space:nowrap"
     rows = "".join(
-        f"<tr><td {cell}>{escape(day)}</td>"
-        f"<td {cell}>🆚 {escape(opponent)}</td>"
-        f"<td {cell}>{escape(start_time)}</td></tr>"
-        for day, opponent, start_time in (game_columns(g) for g in games)
+        f'<tr><td style="{cell}">{escape(day)}</td>'
+        f'<td style="{cell};text-align:right">{escape(start_time)}</td>'
+        f'<td style="{last_cell}">🆚 {escape(opponent)}</td></tr>'
+        for day, start_time, opponent in (game_columns(g) for g in games)
     )
     body_style = (
         "margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;"
