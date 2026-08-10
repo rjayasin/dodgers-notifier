@@ -168,12 +168,7 @@ TIMEZONE_NOTE = "All times PT"
 
 
 def game_columns(game: dict) -> tuple[str, str, str]:
-    """Split a game into its (day, opponent, start time) columns.
-
-    The zone is deliberately left off the time: repeating "PT" on every row costs
-    ~20px of width, which is the difference between fitting and wrapping on a
-    narrow phone. TIMEZONE_NOTE states it once instead.
-    """
+    """Split a game into (day, opponent, start time); zone omitted, see TIMEZONE_NOTE."""
     opponent = game["teams"]["away"]["team"]["name"]
     game_time = datetime.fromisoformat(game["gameDate"]).astimezone(PT)
     day = game_time.strftime("%a %-m/%-d")
@@ -194,13 +189,7 @@ def format_schedule_text(games: list[dict]) -> str:
 
 
 def format_schedule_html(games: list[dict]) -> str:
-    """HTML schedule as a table, so columns line up in a proportional font too.
-
-    Kept narrow enough to fit a phone screen without wrapping: the viewport meta
-    and text-size-adjust stop mobile clients from inflating the text (font
-    boosting), which is what pushes the rows past the screen width and makes
-    them wrap despite white-space:nowrap.
-    """
+    """HTML schedule table; viewport meta and text-size-adjust stop mobile font boosting."""
     cell = 'style="padding:3px 8px 3px 0;white-space:nowrap"'
     rows = "".join(
         f"<tr><td {cell}>{escape(day)}</td>"
