@@ -13,6 +13,7 @@
       color: #e6edf3;
       min-height: 100vh;
       padding: 2rem 1rem;
+      -webkit-text-size-adjust: 100%;
     }
 
     header {
@@ -75,31 +76,33 @@
 
     .schedule-table tr:last-child td { border-bottom: none; }
 
-    .schedule-day { color: #e6edf3; font-weight: 500; }
+    .schedule-day { color: #e6edf3; font-weight: 500; font-variant-numeric: tabular-nums; }
     .schedule-time { color: #8b949e; text-align: right; font-variant-numeric: tabular-nums; }
     .schedule-opponent { width: 100%; white-space: normal; }
     .schedule-vs { color: #8b949e; }
 
-    /* Narrow screens can't fit day + time + opponent on one line: the table's
-       minimum width overflows the card and its row borders run past the edge.
-       Stack each game into a two-line block instead, so nothing overflows and
-       the opponent name gets the full width to wrap into. */
-    @media (max-width: 560px) {
-      body { padding: 1.5rem 0.75rem; }
+    /* Phones can't fit day + time + opponent on one line — the table's ~375px
+       minimum overflows the card — so stack each game into two lines. Wider
+       screens keep the single-line rows, which still fit above this width. */
+    @media (max-width: 480px) {
+      body { padding: 1.25rem 0.6rem; }
 
-      .schedule-wrap { padding: 0.9rem 1rem 1rem; }
+      .schedule-wrap { padding: 0.9rem 0.75rem 0.85rem; }
 
-      .schedule-head { gap: 0.15rem 1rem; }
+      .schedule-head { gap: 0.15rem 1rem; margin-bottom: 0.6rem; }
+
+      .schedule-title { font-size: 0.9375rem; }
 
       .schedule-table tr {
         display: grid;
-        /* Floor the day column at the width of the longest weekday + date so the
-           times still line up down the card; it grows if a row needs more. */
-        grid-template-columns: minmax(4.5em, auto) 1fr;
-        column-gap: 0.5rem;
+        grid-template-columns: 1fr auto;
+        column-gap: 0.75rem;
         align-items: baseline;
-        padding: 0.55rem 0;
+        padding: 0.5rem 0.55rem;
+        /* Transparent by default so today's accent bar doesn't shift the row. */
+        border-left: 2px solid transparent;
         border-bottom: 1px solid #21262d;
+        border-radius: 5px;
       }
 
       .schedule-table tr:last-child { border-bottom: none; }
@@ -111,13 +114,23 @@
         min-width: 0;
       }
 
-      .schedule-time { text-align: left; }
+      .schedule-day { font-size: 0.9375rem; font-weight: 600; }
+
+      .schedule-at { display: none; }
 
       .schedule-opponent {
         grid-column: 1 / -1;
         width: auto;
-        margin-top: 0.2rem;
+        margin-top: 0.1rem;
+        font-size: 0.8125rem;
         line-height: 1.35;
+        color: #adbac7;
+      }
+
+      .schedule-table tr.today {
+        border-left-color: #e3b341;
+        border-bottom-color: transparent;
+        background: rgba(227, 179, 65, 0.08);
       }
     }
 
@@ -509,10 +522,21 @@
         const day = document.createElement('td');
         day.className = 'schedule-day';
         day.textContent = g.day;
+        if (g.date === today) {
+          const tag = document.createElement('span');
+          tag.className = 'today-tag';
+          tag.textContent = 'Today';
+          day.appendChild(tag);
+        }
+
+        // CSS hides this on narrow screens, where the time sits flush right.
+        const at = document.createElement('span');
+        at.className = 'schedule-at';
+        at.textContent = '@ ';
 
         const time = document.createElement('td');
         time.className = 'schedule-time';
-        time.textContent = `@ ${g.time}`;
+        time.append(at, g.time);
 
         const vs = document.createElement('span');
         vs.className = 'schedule-vs';
@@ -521,12 +545,6 @@
         const opponent = document.createElement('td');
         opponent.className = 'schedule-opponent';
         opponent.append(vs, g.opponent);
-        if (g.date === today) {
-          const tag = document.createElement('span');
-          tag.className = 'today-tag';
-          tag.textContent = 'Today';
-          opponent.appendChild(tag);
-        }
 
         tr.append(day, time, opponent);
         tbody.appendChild(tr);
