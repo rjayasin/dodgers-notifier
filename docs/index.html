@@ -14,6 +14,11 @@
       min-height: 100vh;
       padding: 2rem 1rem;
       -webkit-text-size-adjust: 100%;
+      /* Kills double-tap-to-zoom (and the 300ms tap delay it costs) while
+         leaving pinch-to-zoom alone — the week arrows are small enough to
+         double-tap by accident, and a viewport user-scalable=no would take
+         zooming away from anyone who needs it. */
+      touch-action: manipulation;
     }
 
     header {
@@ -63,7 +68,7 @@
 
     .schedule-wrap {
       max-width: 900px;
-      margin: 0 auto 1.5rem;
+      margin: 0 auto 0.55rem;
       background: #161b22;
       border: 1px solid #30363d;
       border-radius: 8px;
@@ -79,17 +84,6 @@
       margin-bottom: 0.75rem;
     }
 
-    /* The arrows sit at the far edge rather than beside the heading: the
-       heading changes width as you browse ("this week" vs a bare date range),
-       and arrows anchored to it would slide out from under the cursor between
-       clicks. "Updated ..." is fixed for the life of the page, so parking the
-       arrows outside it keeps them still. */
-    .schedule-meta {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-left: auto;
-    }
 
     .schedule-title {
       font-size: 0.875rem;
@@ -97,10 +91,15 @@
       color: #f0f6fc;
     }
 
+    /* Pinned to the far edge of the head rather than sitting beside the
+       heading: the heading changes width as you browse ("this week" vs a bare
+       date range), and arrows anchored to it would slide out from under the
+       cursor between clicks. */
     .schedule-nav {
       display: flex;
       gap: 0.25rem;
       flex-shrink: 0;
+      margin-left: auto;
     }
 
     .schedule-arrow {
@@ -146,7 +145,12 @@
       cursor: default;
     }
 
+    /* A caption under the card, not a line inside it: it describes when the
+       whole file was written, not the week currently on screen. */
     .schedule-updated {
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+      text-align: right;
       font-size: 0.75rem;
       color: #8b949e;
     }
@@ -440,21 +444,20 @@
 <div class="schedule-wrap" id="schedule-wrap" style="display:none">
   <div class="schedule-head">
     <div class="schedule-title" id="schedule-title">Dodger Stadium home games</div>
-    <div class="schedule-meta">
-      <div class="schedule-updated" id="schedule-updated"></div>
-      <div class="schedule-nav">
-        <button type="button" class="schedule-arrow" id="schedule-prev" aria-label="Previous week">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 5 8l5.5 5.5"/></svg>
-        </button>
-        <button type="button" class="schedule-arrow" id="schedule-next" aria-label="Next week">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5 11 8l-5.5 5.5"/></svg>
-        </button>
-      </div>
+    <div class="schedule-nav">
+      <button type="button" class="schedule-arrow" id="schedule-prev" aria-label="Previous week">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 5 8l5.5 5.5"/></svg>
+      </button>
+      <button type="button" class="schedule-arrow" id="schedule-next" aria-label="Next week">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5 11 8l-5.5 5.5"/></svg>
+      </button>
     </div>
   </div>
   <table class="schedule-table"><tbody id="schedule-body"></tbody></table>
   <div class="schedule-empty" id="schedule-empty" style="display:none"></div>
 </div>
+
+<div class="schedule-updated" id="schedule-updated"></div>
 
 <hr class="section-break">
 
