@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dodgers Home Games</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* touch-action isn't inherited: on * so no control is left zoomable by double-tap. Pinch still works. */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      touch-action: manipulation;
+    }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -14,11 +20,6 @@
       min-height: 100vh;
       padding: 2rem 1rem;
       -webkit-text-size-adjust: 100%;
-      /* Kills double-tap-to-zoom (and the 300ms tap delay it costs) while
-         leaving pinch-to-zoom alone — the week arrows are small enough to
-         double-tap by accident, and a viewport user-scalable=no would take
-         zooming away from anyone who needs it. */
-      touch-action: manipulation;
     }
 
     header {
@@ -80,7 +81,8 @@
       align-items: baseline;
       justify-content: space-between;
       gap: 1rem;
-      flex-wrap: wrap;
+      /* One row always: the arrows belong beside the week they change. */
+      flex-wrap: nowrap;
       margin-bottom: 0.75rem;
     }
 
@@ -89,12 +91,14 @@
       font-size: 0.875rem;
       font-weight: 600;
       color: #f0f6fc;
+      /* Ellipsis below ~380px rather than wrapping or pushing the arrows off. */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
     }
 
-    /* Pinned to the far edge of the head rather than sitting beside the
-       heading: the heading changes width as you browse ("this week" vs a bare
-       date range), and arrows anchored to it would slide out from under the
-       cursor between clicks. */
+    /* Pinned right: the heading changes width as you browse, and arrows beside it would slide under the cursor. */
     .schedule-nav {
       display: flex;
       gap: 0.25rem;
@@ -145,8 +149,7 @@
       cursor: default;
     }
 
-    /* A caption under the card, not a line inside it: it describes when the
-       whole file was written, not the week currently on screen. */
+    /* Under the card, not in it: this is the file's write time, not the week on screen. */
     .schedule-updated {
       max-width: 900px;
       margin: 0 auto 1.5rem;
@@ -174,60 +177,28 @@
     .schedule-opponent { width: 100%; white-space: normal; }
     .schedule-vs { color: #8b949e; }
 
-    /* Phones can't fit day + time + opponent on one line — the table's ~375px
-       minimum overflows the card — so stack each game into two lines. Wider
-       screens keep the single-line rows, which still fit above this width. */
+    /* Phones keep one line per game; the gaps tighten until the widest row fits the card. */
     @media (max-width: 480px) {
       body { padding: 1.25rem 0.6rem; }
 
-      .schedule-wrap { padding: 0.9rem 0.75rem 0.85rem; }
-
-      .schedule-head { gap: 0.15rem 1rem; margin-bottom: 0.6rem; }
-
-      .schedule-title { font-size: 0.9375rem; }
-
-      .schedule-arrow { width: 2rem; height: 2rem; }
-      .schedule-arrow svg { width: 13px; height: 13px; }
-
-      .schedule-table tr {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        column-gap: 0.75rem;
-        align-items: baseline;
-        padding: 0.5rem 0.55rem;
-        /* Transparent by default so today's accent bar doesn't shift the row. */
-        border-left: 2px solid transparent;
-        border-bottom: 1px solid #21262d;
-        border-radius: 5px;
+      .schedule-wrap {
+        padding: 0.9rem 0.75rem 0.85rem;
+        /* Below ~340px, scroll rather than break the single-line layout. */
+        overflow-x: auto;
       }
 
-      .schedule-table tr:last-child { border-bottom: none; }
+      .schedule-head { margin-bottom: 0.6rem; gap: 0.5rem; }
 
-      .schedule-table td {
-        display: block;
-        padding: 0;
-        border-bottom: none;
-        min-width: 0;
-      }
+      .schedule-title { font-size: 0.875rem; }
 
-      .schedule-day { font-size: 0.9375rem; font-weight: 600; }
+      .schedule-arrow { width: 1.875rem; height: 1.875rem; }
+      .schedule-arrow svg { width: 12px; height: 12px; }
 
+      /* Full-size type stays: dropping "@" and tightening gaps buys back the width instead. */
+      .schedule-table td { padding-right: 0.5rem; }
+
+      /* The column reads as a time without the "@", so it goes first. */
       .schedule-at { display: none; }
-
-      .schedule-opponent {
-        grid-column: 1 / -1;
-        width: auto;
-        margin-top: 0.1rem;
-        font-size: 0.8125rem;
-        line-height: 1.35;
-        color: #adbac7;
-      }
-
-      .schedule-table tr.today {
-        border-left-color: #e3b341;
-        border-bottom-color: transparent;
-        background: rgba(227, 179, 65, 0.08);
-      }
     }
 
     .schedule-table tr.past td { opacity: 0.45; }
