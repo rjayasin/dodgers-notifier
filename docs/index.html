@@ -2,15 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Dodgers Home Games</title>
   <style>
-    /* touch-action isn't inherited: on * so no control is left zoomable by double-tap. Pinch still works. */
+    /* touch-action isn't inherited, so it goes on * — no element is left zoomable.
+       pan-x pan-y keeps scrolling but drops the pinch-zoom and double-tap-zoom
+       that `manipulation` would still allow. */
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      touch-action: manipulation;
+      touch-action: pan-x pan-y;
     }
 
     body {
@@ -1272,6 +1274,27 @@
 
     document.getElementById('table-wrap').style.display = '';
   }
+
+  // ── Zoom lock (mobile) ───────────────────────────────────────────
+  // iOS Safari ignores user-scalable=no and does not always honour touch-action
+  // for page zoom, so the gestures are cancelled directly. Listeners are
+  // non-passive: a passive one cannot preventDefault.
+
+  // Pinch: Safari's own gesture events fire for the page-level zoom.
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(type, e => e.preventDefault(), { passive: false });
+  }
+
+  // Double-tap: a second tap landing soon after the first is the zoom gesture,
+  // so cancel that touchend. Single taps — and the clicks they synthesise on the
+  // chart dots and links — are untouched.
+  const DOUBLE_TAP_MS = 350;
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= DOUBLE_TAP_MS) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
 
   loadSchedule();
   load();
