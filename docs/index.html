@@ -448,7 +448,11 @@
 <script>
   const REPO = 'rjayasin/dodgers-notifier';
   const PER_PAGE = 100;
-  const EXCLUDED_WORKFLOWS = new Set(['Deploy GitHub Pages', 'pages build and deployment']);
+  // An include list rather than an exclude list: every workflow added to the
+  // repo since — site deploys, Pages builds, Keep Alive — turned up in the run
+  // list uninvited, and the page is only ever about these two. The charts name
+  // the same workflows, so adding one here is not enough to chart it.
+  const INCLUDED_WORKFLOWS = new Set(['Dodgers Daily Check', 'Dodgers Weekly Schedule']);
   // Matches the cron in .github/workflows/daily_check.yml ('0 14 * * *' UTC).
   const DAILY_CRON_UTC_HOUR = 14;
   const DAILY_CRON_UTC_MINUTE = 0;
@@ -661,8 +665,10 @@
       );
       if (!res.ok) throw new Error(`GitHub API ${res.status}: ${res.statusText}`);
       const data = await res.json();
+      // The single gate for the whole page: everything below renders from this
+      // array, so manual runs are excluded from the charts and the list alike.
       const runs = (data.workflow_runs || []).filter(
-        r => !EXCLUDED_WORKFLOWS.has(r.name) && r.event !== 'workflow_dispatch'
+        r => INCLUDED_WORKFLOWS.has(r.name) && r.event !== 'workflow_dispatch'
       );
       render(runs);
     } catch (e) {
@@ -681,7 +687,7 @@
     const plotH = H - PAD.top - PAD.bottom;
 
     const points = runs
-      .filter(r => r.name === workflowName && r.status === 'completed' && r.updated_at && r.event !== 'workflow_dispatch')
+      .filter(r => r.name === workflowName && r.status === 'completed' && r.updated_at)
       .map(r => {
         const d = new Date(r.updated_at);
         const dayKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -857,8 +863,7 @@
     const deploys = runs
       .filter(r => r.name === 'Dodgers Daily Check'
                 && r.status === 'completed'
-                && r.updated_at
-                && r.event !== 'workflow_dispatch')
+                && r.updated_at)
       .map(r => {
         const d = new Date(r.updated_at);
         return {
@@ -1072,14 +1077,14 @@
 
     // Collect completion times per workflow
     const completionTimes = (name) => runs
-      .filter(r => r.status === 'completed' && r.updated_at && r.name === name && r.event !== 'workflow_dispatch')
+      .filter(r => r.status === 'completed' && r.updated_at && r.name === name)
       .map(r => r.updated_at);
 
     // Stats
     document.getElementById('stat-count').textContent = runs.length;
     document.getElementById('stat-avg-daily').textContent = avgTimeOfDay(completionTimes('Dodgers Daily Check'));
     document.getElementById('stat-avg-weekly').textContent = avgTimeOfDay(completionTimes('Dodgers Weekly Schedule'));
-    const lastCompleted = runs.find(r => r.status === 'completed' && r.updated_at && r.event !== 'workflow_dispatch');
+    const lastCompleted = runs.find(r => r.status === 'completed' && r.updated_at);
     document.getElementById('stat-last').textContent =
       lastCompleted ? fmtDateDot(lastCompleted.updated_at) : '—';
     document.getElementById('stats').style.display = '';
