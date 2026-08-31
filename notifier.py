@@ -14,6 +14,8 @@ DODGER_STADIUM_VENUE_ID = 22
 MLB_SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 MLB_SEASONS_URL = "https://statsapi.mlb.com/api/v1/seasons"
 PT = ZoneInfo("America/Los_Angeles")
+DASHBOARD_URL = "https://rjayasin.github.io/dodgers-notifier"
+DASHBOARD_LINK_TEXT = "See the full schedule and recent runs on the dashboard"
 # The Pages dashboard reads this file; the weekly workflow commits it back to the repo.
 SCHEDULE_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "schedule.json")
 
@@ -189,16 +191,32 @@ def game_columns(game: dict) -> tuple[str, str, str]:
     return entry["day"], f"@ {entry['time']}", entry["opponent"]
 
 
+def dashboard_link_html(font: str) -> str:
+    """The dashboard link that closes the HTML email, in Dodger blue."""
+    return (
+        f'<p style="{font};margin:16px 0 0">'
+        f'<a href="{DASHBOARD_URL}" style="color:#005A9C">'
+        f"{DASHBOARD_LINK_TEXT}</a></p>"
+    )
+
+
+def dashboard_link_text() -> str:
+    """The dashboard link that closes the plain-text email; the URL goes on its
+    own line so clients that autolink don't swallow the trailing punctuation."""
+    return f"{DASHBOARD_LINK_TEXT}:\n{DASHBOARD_URL}"
+
+
 def format_schedule_text(games: list[dict]) -> str:
     """Plain-text schedule, columns padded so they line up in a monospace client."""
     rows = [game_columns(g) for g in games]
     day_width = max(len(day) for day, _, _ in rows)
     # Times are right-aligned so 10:10 AM and 7:10 PM share a right edge.
     time_width = max(len(start_time) for _, start_time, _ in rows)
-    return "\n".join(
+    schedule = "\n".join(
         f"{day:<{day_width}}  {start_time:>{time_width}}  🆚 {opponent}"
         for day, start_time, opponent in rows
     )
+    return f"{schedule}\n\n{dashboard_link_text()}"
 
 
 def format_schedule_html(games: list[dict]) -> str:
@@ -228,6 +246,7 @@ def format_schedule_html(games: list[dict]) -> str:
         '<table role="presentation" cellpadding="0" cellspacing="0" '
         'border="0" style="border-collapse:collapse">'
         f"{rows}</table>"
+        f"{dashboard_link_html(font)}"
         "</body></html>"
     )
 
@@ -304,7 +323,8 @@ def weekly() -> None:
             return
         subject = f"⚾ No Dodgers home games this week ({week_range})"
         print(f"Sending email:\n{subject}")
-        send_email(subject, f"No Dodgers home games this week ({week_range}).", gmail_address, app_password, notify_email)
+        body = f"No Dodgers home games this week ({week_range}).\n\n{dashboard_link_text()}"
+        send_email(subject, body, gmail_address, app_password, notify_email)
         print("Email sent.")
         return
 

@@ -39,7 +39,7 @@ No paid services, no third-party accounts — just a Gmail account and GitHub.
 >
 > Dodgers home game at 7:10 PM PT vs Kansas City Royals
 
-**Weekly schedule** — the game count and week range in the subject, one line per game in the body:
+**Weekly schedule** — the game count and week range in the subject, one line per game in the body, closing with a link to the [dashboard](https://rjayasin.github.io/dodgers-notifier):
 
 > **⚾ 7 Dodgers home games this week (Aug 10–16)**
 >
@@ -52,6 +52,8 @@ No paid services, no third-party accounts — just a Gmail account and GitHub.
 > Sat 8/15  @ 4:15 PM  🆚 Milwaukee Brewers
 > Sun 8/16  @ 1:10 PM  🆚 Milwaukee Brewers
 > ```
+>
+> See the full schedule and recent runs on the dashboard
 
 The weekly email is sent as both HTML and plain text. The HTML part renders the schedule as a table so the columns line up in a proportional font; the plain-text part pads them to line up in a monospace client. Start times are Pacific.
 
@@ -60,6 +62,8 @@ The weekly email is sent as both HTML and plain text. The HTML part renders the 
 > **⚾ No Dodgers home games this week (Aug 10–16)**
 >
 > No Dodgers home games this week (Aug 10–16).
+>
+> See the full schedule and recent runs on the dashboard
 
 > **Why not SMS?** Earlier versions texted via carrier email-to-SMS gateways (e.g. `@vtext.com`). Carriers are shutting those gateways down — Verizon retires `vtext.com`/`vzwpix.com` by March 31, 2027, and delivery is already unreliable, with messages arriving late, out of order, or not at all. Email is dependable and has no length limits. To get phone notifications, enable push notifications in the Gmail app for the recipient address (a Gmail filter can label these emails so you can create a distinct alert for them).
 
