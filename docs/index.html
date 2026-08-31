@@ -253,6 +253,14 @@
       margin-top: 0.25rem;
     }
 
+    .table-title {
+      max-width: 900px;
+      margin: 0 auto 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
     .table-wrap {
       max-width: 900px;
       margin: 0 auto;
@@ -439,7 +447,7 @@
 
 <div class="stat-bar" id="stats" style="display:none">
   <div class="stat">
-    <div class="stat-label">Runs shown</div>
+    <div class="stat-label">Runs recorded</div>
     <div class="stat-value" id="stat-count">—</div>
   </div>
   <div class="stat">
@@ -474,6 +482,7 @@
   <svg id="chart-weekly" viewBox="0 0 900 280" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
+<div class="table-title" id="table-title" style="display:none">Recent runs</div>
 <div class="table-wrap" id="table-wrap" style="display:none">
   <table>
     <thead>
@@ -492,11 +501,15 @@
 
 <script>
   const REPO = 'rjayasin/dodgers-notifier';
-  const PER_PAGE = 100;
+  // The charts want every run there is; the table is a "what happened lately"
+  // list, and runs.json only grows, so it gets the most recent slice.
+  const TABLE_LIMIT = 100;
   // An include list rather than an exclude list: every workflow added to the
   // repo since — site deploys, Pages builds, Keep Alive — turned up in the run
   // list uninvited, and the page is only ever about these two. The charts name
   // the same workflows, so adding one here is not enough to chart it.
+  // runs.json is already written to these two; this keeps the page honest if
+  // that list ever widens.
   const INCLUDED_WORKFLOWS = new Set(['Dodgers Daily Check', 'Dodgers Weekly Schedule']);
   // Matches the cron in .github/workflows/daily_check.yml ('0 14 * * *' UTC).
   const DAILY_CRON_UTC_HOUR = 14;
@@ -702,19 +715,28 @@
     }
   }
 
+  // runs.json is written by `notifier.py runs` and committed by the Dodgers
+  // Daily Check workflow, which folds each day's runs into it.
+  //
+  // This used to call the GitHub API from the browser on every visit. That
+  // spent each viewer's own unauthenticated rate limit — 60 an hour, shared
+  // across everything else on their IP — and could only ever show the runs
+  // GitHub still listed, so the charts silently lost their left edge as runs
+  // aged out. Reading a committed file keeps the history for good and costs
+  // the page one static request.
   async function load() {
     try {
-      const res = await fetch(
-        `https://api.github.com/repos/${REPO}/actions/runs?per_page=${PER_PAGE}`,
-        { headers: { Accept: 'application/vnd.github+json' } }
-      );
-      if (!res.ok) throw new Error(`GitHub API ${res.status}: ${res.statusText}`);
+      const res = await fetch('runs.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`runs.json ${res.status}: ${res.statusText}`);
       const data = await res.json();
+      const repo = data.repo || REPO;
       // The single gate for the whole page: everything below renders from this
       // array, so manual runs are excluded from the charts and the list alike.
-      const runs = (data.workflow_runs || []).filter(
-        r => INCLUDED_WORKFLOWS.has(r.name) && r.event !== 'workflow_dispatch'
-      );
+      const runs = (data.runs || [])
+        .filter(r => INCLUDED_WORKFLOWS.has(r.name) && r.event !== 'workflow_dispatch')
+        // Stored without a URL — one identical prefix per run would outweigh
+        // the run itself — so rebuild it from the id the links need.
+        .map(r => ({ ...r, html_url: `https://github.com/${repo}/actions/runs/${r.id}` }));
       render(runs);
     } catch (e) {
       document.getElementById('status').innerHTML =
@@ -941,9 +963,17 @@
       label.textContent = fmt(ms);
       svg.appendChild(label);
     }
-    // Always include the last day label if not already a tick
-    if ((dayKeys.length - 1) % step !== 0) {
-      const ms = dayKeys[dayKeys.length - 1];
+    // Close out the axis with the last day, unless the final tick already sits
+    // on it or so near that the two labels would print over each other — with
+    // a season of runs behind the chart, the step lands within a day or two of
+    // the end more often than not, and 17px apart the dates were unreadable.
+    // The final tick is already at the right edge in that case, so dropping the
+    // extra label loses nothing.
+    const lastIndex = dayKeys.length - 1;
+    const lastTickX = xFor(dayKeys[lastIndex - (lastIndex % step)]);
+    const MIN_LABEL_GAP = 48;  // A "Mon D" label at 10px monospace is ~40px wide.
+    if (lastIndex % step !== 0 && xFor(dayKeys[lastIndex]) - lastTickX >= MIN_LABEL_GAP) {
+      const ms = dayKeys[lastIndex];
       const x = xFor(ms);
       const label = document.createElementNS(SVG_NS, 'text');
       label.setAttribute('x', x);
@@ -1241,10 +1271,16 @@
     });
     renderDeployBoxPlot(runs);
 
-    // Table rows
+    // Table rows — newest first, as runs.json stores them.
+    const shown = runs.slice(0, TABLE_LIMIT);
+    document.getElementById('table-title').textContent = runs.length > shown.length
+      ? `Recent runs — latest ${shown.length} of ${runs.length}`
+      : 'Recent runs';
+    document.getElementById('table-title').style.display = '';
+
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
-    for (const run of runs) {
+    for (const run of shown) {
       const startedAt = run.run_started_at || run.created_at;
       const completedAt = run.status === 'completed' ? run.updated_at : null;
 

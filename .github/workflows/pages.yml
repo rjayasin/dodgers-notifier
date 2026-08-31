@@ -5,10 +5,11 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-  # The weekly run commits docs/schedule.json with GITHUB_TOKEN, and pushes made
-  # with that token don't fire the `push` trigger above — chain off the run instead.
+  # Both cron runs commit into docs/ with GITHUB_TOKEN — the weekly one
+  # schedule.json, the daily one runs.json — and pushes made with that token
+  # don't fire the `push` trigger above, so chain off the runs instead.
   workflow_run:
-    workflows: ['Dodgers Weekly Schedule']
+    workflows: ['Dodgers Weekly Schedule', 'Dodgers Daily Check']
     types: [completed]
   workflow_dispatch:
 

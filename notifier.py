@@ -348,9 +348,159 @@ def weekly() -> None:
     print("Email sent.")
 
 
+# ── Workflow run history ────────────────────────────────────────────
+
+# Actions sets GITHUB_REPOSITORY itself, so a fork records its own runs without
+# editing anything; the literal is only for running this by hand.
+GITHUB_REPO = os.environ.get("GITHUB_REPOSITORY") or "rjayasin/dodgers-notifier"
+GITHUB_RUNS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/actions/runs"
+# The dashboard charts only these two, so only these two are worth storing.
+# Site deploys, Pages builds and Keep Alive would pad the file for nothing.
+DASHBOARD_WORKFLOWS = {"Dodgers Daily Check", "Dodgers Weekly Schedule"}
+# The Pages dashboard reads this file; the daily workflow commits it back to the repo.
+RUNS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "runs.json")
+RUNS_PER_PAGE = 100
+# A backstop for the first backfill only. GitHub stops listing past 1,000 runs
+# anyway, so this can't cut a genuine catch-up short.
+MAX_RUN_PAGES = 10
+
+
+def github_get(url: str) -> dict:
+    """GET the GitHub REST API, authenticated when a token is in the environment.
+
+    Anonymous calls work against a public repo but share a 60/hour budget with
+    every other job on the runner's IP, so Actions passes GITHUB_TOKEN.
+    """
+    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(request, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+def run_record(run: dict) -> dict:
+    """The slice of a workflow run the dashboard actually draws.
+
+    html_url is left out on purpose: the page rebuilds it from the id, and at a
+    run a day the repeated prefix would soon outweigh the data around it.
+    """
+    return {
+        "id": run["id"],
+        "name": run["name"],
+        "run_number": run["run_number"],
+        "event": run["event"],
+        "status": run["status"],
+        "conclusion": run["conclusion"],
+        "run_started_at": run.get("run_started_at") or run["created_at"],
+        "updated_at": run["updated_at"],
+    }
+
+
+def load_run_history(path: str) -> dict[int, dict]:
+    """The runs already committed, keyed by id. Missing file means first run."""
+    try:
+        with open(path) as f:
+            stored = json.load(f)
+    except FileNotFoundError:
+        return {}
+    return {r["id"]: r for r in stored.get("runs", [])}
+
+
+def fetch_run_history(known: dict[int, dict]) -> dict[int, dict]:
+    """Page back through the run list until a page holds nothing new.
+
+    Runs come back newest first, so a page whose every run already matches what
+    is stored means the pages behind it match too. In steady state that settles
+    the daily catch-up in two requests, while an empty history still walks back
+    to the oldest run GitHub still lists.
+
+    A page with no dashboard runs on it at all decides nothing — a burst of
+    Pages builds can fill one — so paging continues through it.
+    """
+    # The recording run is still in flight, so its own row would be stored
+    # half-finished and stay that way until the next day corrected it. Leaving
+    # it out costs a day's latency and keeps the file to completed runs.
+    self_run_id = int(os.environ.get("GITHUB_RUN_ID") or 0)
+    found: dict[int, dict] = {}
+
+    for page in range(1, MAX_RUN_PAGES + 1):
+        data = github_get(f"{GITHUB_RUNS_URL}?per_page={RUNS_PER_PAGE}&page={page}")
+        runs = data.get("workflow_runs", [])
+        if not runs:
+            break
+        records = {
+            r["id"]: run_record(r) for r in runs
+            if r["name"] in DASHBOARD_WORKFLOWS and r["id"] != self_run_id
+        }
+        found.update(records)
+        # `!=` and not `not in`: a run listed before it finished has to be
+        # picked up again once its conclusion lands.
+        if records and all(known.get(rid) == rec for rid, rec in records.items()):
+            break
+
+    return found
+
+
+def write_run_history(path: str, records: dict[int, dict]) -> None:
+    """Write docs/runs.json — the run history behind the Pages dashboard.
+
+    Newest first, because the dashboard's table renders in file order and its
+    "last run" stat takes the first completed row it finds.
+    """
+    runs = sorted(
+        records.values(),
+        key=lambda r: (r["run_started_at"], r["id"]),
+        reverse=True,
+    )
+    payload = {
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "repo": GITHUB_REPO,
+        "runs": runs,
+    }
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+def runs() -> None:
+    """Fold the newest workflow runs into docs/runs.json.
+
+    The dashboard used to call the GitHub API from the browser on every visit,
+    which spent the viewer's own anonymous rate limit and could only ever show
+    the runs GitHub still had. Accumulating them here keeps the history past
+    whatever GitHub drops, and costs the page one static file.
+    """
+    path = os.environ.get("RUNS_JSON_PATH", RUNS_JSON_PATH)
+    known = load_run_history(path)
+    print(f"Reading workflow runs for {GITHUB_REPO} ({len(known)} already stored)...")
+
+    try:
+        fetched = fetch_run_history(known)
+    except Exception as e:
+        print(f"Error fetching workflow runs: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    added = sum(1 for run_id in fetched if run_id not in known)
+    updated = sum(1 for run_id, rec in fetched.items()
+                  if run_id in known and known[run_id] != rec)
+    if not (added or updated) and os.path.exists(path):
+        # Rewriting would only bump generated_at, and the workflow commits on any
+        # diff — a daily no-op commit would redeploy the site for nothing. A repo
+        # with no qualifying runs yet still falls through, so the dashboard gets
+        # an empty file to read rather than a 404.
+        print(f"No new runs — {path} left as it is ({len(known)} runs).")
+        return
+
+    merged = {**known, **fetched}
+    write_run_history(path, merged)
+    print(f"Wrote {path} ({len(merged)} runs, {added} new, {updated} updated)")
+
+
 # ── CLI entry point ─────────────────────────────────────────────────
 
-COMMANDS = {"daily": daily, "weekly": weekly}
+COMMANDS = {"daily": daily, "weekly": weekly, "runs": runs}
 
 if __name__ == "__main__":
     if len(sys.argv) != 2 or sys.argv[1] not in COMMANDS:

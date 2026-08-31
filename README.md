@@ -6,7 +6,7 @@ A GitHub Actions automation that emails you about upcoming Dodgers home games �
 
 ## How It Works
 
-Everything lives in a single script, `notifier.py`, with two subcommands:
+Everything lives in a single script, `notifier.py`, with three subcommands:
 
 ### Daily check (`python notifier.py daily`)
 
@@ -15,6 +15,7 @@ Everything lives in a single script, `notifier.py`, with two subcommands:
 3. It checks whether any game is a **home game at Dodger Stadium** — it verifies both the home team ID (119) and venue ID (22) to correctly exclude neutral-site games like the London or Tokyo Series.
 4. Postponed games are skipped automatically. Double-headers trigger one email per game.
 5. If a home game is found, the script **sends an email** with the opponent and first pitch time.
+6. The same workflow then runs `notifier.py runs` and commits `docs/runs.json` back to `main`, so the [dashboard](#dashboard)'s charts gain a day of history. This runs whether or not an email went out.
 
 ### Weekly schedule (`python notifier.py weekly`)
 
@@ -24,6 +25,14 @@ Everything lives in a single script, `notifier.py`, with two subcommands:
 4. If there are **no home games that week**, you get a "No Dodgers home games this week" email instead.
 5. An **offseason gate** skips that email outside the MLB season (Opening Day through the postseason), so you aren't emailed "no games" all winter.
 6. The next eight weeks are written to `docs/schedule.json` and committed back to `main` — that's what the [dashboard](#dashboard) shows at the top of the page. The file is written before the email branches, so the dashboard refreshes even on weeks that send no email.
+
+### Run history (`python notifier.py runs`)
+
+1. The **Daily Check workflow** runs this after the game check, on the same daily cron.
+2. It reads the repo's workflow runs from the GitHub REST API and folds the Daily Check and Weekly Schedule ones into `docs/runs.json`, keyed by run id, so the file only ever grows.
+3. It pages back only until it reaches a page it has already stored — a day's catch-up is two API calls, while an empty file backfills as far as GitHub still lists.
+4. The run doing the recording leaves **itself** out: it hasn't finished, so it has no completion time yet. The next day's run picks it up complete.
+5. If nothing is new, the file is left untouched so the workflow has nothing to commit.
 
 ### How delivery works
 
@@ -98,11 +107,38 @@ The **‹ ›** arrows beside the heading step through the published weeks. They
 
 Within a week, today's game is highlighted and games already played are greyed out, both judged against the current Pacific date. Start times are pre-formatted in Pacific rather than rendered from a timestamp, so first pitch reads the same wherever the page is opened.
 
-**Workflow run stats and charts**, under a *Workflow Runs* heading below the schedule, are fetched live from the GitHub REST API in the browser; nothing about them is committed. The page covers the two notifier workflows named in `INCLUDED_WORKFLOWS` — Daily Check and Weekly Schedule — so site deploys, Pages builds and Keep Alive stay out of the charts and the run list. It's an include list rather than an exclude list because a new workflow should stay off the page until it's deliberately added. Manually triggered (`workflow_dispatch`) runs are filtered out in the same place, so they don't skew the completion-time charts.
+**Workflow run stats and charts**, under a *Workflow Runs* heading below the schedule, come from `docs/runs.json`, which `python notifier.py runs` writes and the daily workflow commits back to `main`:
+
+```json
+{
+  "generated_at": "2026-08-31T14:02:41Z",
+  "repo": "rjayasin/dodgers-notifier",
+  "runs": [
+    {
+      "id": 33326397502,
+      "name": "Dodgers Daily Check",
+      "run_number": 146,
+      "event": "schedule",
+      "status": "completed",
+      "conclusion": "success",
+      "run_started_at": "2026-08-30T17:50:14Z",
+      "updated_at": "2026-08-30T17:51:02Z"
+    }
+  ]
+}
+```
+
+Runs are stored newest first, one record per run and roughly 280 bytes each — a season of runs is about 47 KB. `html_url` is left out and rebuilt in the page from the id, since one identical prefix per run would outweigh the run itself.
+
+The page used to call the GitHub REST API from the browser on every visit. That spent each **viewer's** own unauthenticated rate limit (60 an hour, shared with everything else on their IP), and it could only ever show what GitHub still listed, so the charts quietly lost their left edge as runs aged out. Accumulating the history in the repo keeps it for good and costs the page one static request.
+
+The file covers the two notifier workflows named in `DASHBOARD_WORKFLOWS` in `notifier.py` — Daily Check and Weekly Schedule — so site deploys, Pages builds and Keep Alive are never recorded. The page filters the same two names again through `INCLUDED_WORKFLOWS`, so a new workflow stays off the charts until it's deliberately added in both places. Manually triggered (`workflow_dispatch`) runs are stored but filtered out by the page, so they don't skew the completion-time charts.
+
+The charts draw the whole history; the table below them lists the most recent `TABLE_LIMIT` runs (100) and says how many it's showing out of the total, since the file grows without bound.
 
 Every dot on the charts is a run: hovering shows its date, completion time and result, and clicking opens that run on GitHub in a new tab. The dots are focusable, so the same works from the keyboard with Tab and Enter. Hovering a box in the day-of-week plot shows that day's median, quartiles and range instead — it summarises many runs, so it isn't a link.
 
-Pages deploys on any push touching `docs/**`, and also when the weekly workflow completes — a push made with the workflow's `GITHUB_TOKEN` deliberately does not trigger `push` workflows, so the schedule commit needs that second trigger to reach the site.
+Pages deploys on any push touching `docs/**`, and also when **either** cron workflow completes — a push made with a workflow's `GITHUB_TOKEN` deliberately does not trigger `push` workflows, so the weekly schedule commit and the daily run-history commit both need that second trigger to reach the site.
 
 ---
 
@@ -168,6 +204,14 @@ GMAIL_APP_PASSWORD=your_app_password \
 GAME_DATE=2025-07-04 \
 python notifier.py daily
 ```
+
+**Backfill the run history locally:** `notifier.py runs` needs no Gmail credentials, only a token with read access to the repo's Actions. On a fresh fork this walks back through every run GitHub still lists; afterwards it stops as soon as it recognises a page.
+
+```bash
+GITHUB_TOKEN=$(gh auth token) python notifier.py runs
+```
+
+Point it somewhere harmless with `RUNS_JSON_PATH=/tmp/runs.json` to see what it would write without touching `docs/`.
 
 ---
 

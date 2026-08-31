@@ -5,12 +5,18 @@ on:
     - cron: '0 14 * * *'  # 7:00 AM PDT (UTC-7) / 6:00 AM PST (UTC-8)
   workflow_dispatch:       # Allows manual trigger from the Actions tab
 
+permissions:
+  contents: write  # Commits the refreshed docs/runs.json back to main
+  actions: read    # Reads the run history that file is built from
+
 jobs:
   check-game:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # Full history, so the rebase before pushing has a merge base
 
       - uses: actions/setup-python@v6
         with:
@@ -22,3 +28,30 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
         run: python notifier.py daily
+
+      # The dashboard's charts read docs/runs.json rather than calling the
+      # GitHub API from the browser, so the history has to be accumulated here.
+      # This run is still in flight and so records nothing about itself —
+      # tomorrow's run picks it up once it has a conclusion.
+      - name: Record workflow run history
+        if: ${{ !cancelled() }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python notifier.py runs
+
+      - name: Commit run history for the dashboard
+        if: ${{ !cancelled() }}
+        run: |
+          # git status catches the first run too, when the file is still untracked.
+          if [ -z "$(git status --porcelain docs/runs.json)" ]; then
+            echo "No new runs — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/runs.json
+          git commit -m "Update workflow run history"
+          # The weekly run commits docs/schedule.json to the same branch; rebase
+          # rather than fail if it landed between this checkout and this push.
+          git pull --rebase --autostash
+          git push
