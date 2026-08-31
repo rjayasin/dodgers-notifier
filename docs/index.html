@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dodgers Home Games</title>
   <style>
-    /* touch-action isn't inherited: on * so no control is left zoomable by double-tap. Pinch still works. */
+    /* touch-action isn't inherited: on * so no element is left zoomable. */
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      touch-action: manipulation;
+      touch-action: pan-x pan-y;
     }
 
     body {
@@ -1272,6 +1272,28 @@
 
     document.getElementById('table-wrap').style.display = '';
   }
+
+  // ── Zoom lock (mobile) ───────────────────────────────────────────
+  // iOS Safari ignores user-scalable=no, so the gestures are cancelled directly.
+
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(type, e => e.preventDefault(), { passive: false });
+  }
+
+  // Zoom needs the two taps close together, so a lone timer would also swallow
+  // quick taps on two different dots.
+  const DOUBLE_TAP_MS = 350, DOUBLE_TAP_PX = 40;
+  let lastTap = { t: 0, x: 0, y: 0 };
+  document.addEventListener('touchend', e => {
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const now = Date.now();
+    if (now - lastTap.t <= DOUBLE_TAP_MS
+        && Math.hypot(touch.clientX - lastTap.x, touch.clientY - lastTap.y) < DOUBLE_TAP_PX) {
+      e.preventDefault();
+    }
+    lastTap = { t: now, x: touch.clientX, y: touch.clientY };
+  }, { passive: false });
 
   loadSchedule();
   load();
