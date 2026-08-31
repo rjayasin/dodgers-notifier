@@ -1,36 +1,54 @@
 {
-  "generated_at": "2026-08-23T23:23:02Z",
+  "generated_at": "2026-08-31T01:11:23Z",
   "weeks": [
-    {
-      "start": "2026-08-17",
-      "end": "2026-08-23",
-      "range": "Aug 17–23",
-      "games": [
-        {
-          "date": "2026-08-21",
-          "day": "Fri 8/21",
-          "time": "7:10 PM",
-          "opponent": "Pittsburgh Pirates"
-        },
-        {
-          "date": "2026-08-22",
-          "day": "Sat 8/22",
-          "time": "4:15 PM",
-          "opponent": "Pittsburgh Pirates"
-        },
-        {
-          "date": "2026-08-23",
-          "day": "Sun 8/23",
-          "time": "1:10 PM",
-          "opponent": "Pittsburgh Pirates"
-        }
-      ]
-    },
     {
       "start": "2026-08-24",
       "end": "2026-08-30",
       "range": "Aug 24–30",
       "games": []
+    },
+    {
+      "start": "2026-08-31",
+      "end": "2026-09-06",
+      "range": "Aug 31–Sep 6",
+      "games": [
+        {
+          "date": "2026-09-01",
+          "day": "Tue 9/1",
+          "time": "7:10 PM",
+          "opponent": "St. Louis Cardinals"
+        },
+        {
+          "date": "2026-09-02",
+          "day": "Wed 9/2",
+          "time": "7:10 PM",
+          "opponent": "St. Louis Cardinals"
+        },
+        {
+          "date": "2026-09-03",
+          "day": "Thu 9/3",
+          "time": "7:10 PM",
+          "opponent": "St. Louis Cardinals"
+        },
+        {
+          "date": "2026-09-04",
+          "day": "Fri 9/4",
+          "time": "7:10 PM",
+          "opponent": "Washington Nationals"
+        },
+        {
+          "date": "2026-09-05",
+          "day": "Sat 9/5",
+          "time": "6:10 PM",
+          "opponent": "Washington Nationals"
+        },
+        {
+          "date": "2026-09-06",
+          "day": "Sun 9/6",
+          "time": "7:10 PM",
+          "opponent": "Washington Nationals"
+        }
+      ]
     }
   ]
 }
