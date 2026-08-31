@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dodgers Notifier — Workflow Runs</title>
+  <title>Dodgers Home Games</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -28,6 +28,34 @@
     }
 
     header p {
+      margin-top: 0.35rem;
+      font-size: 0.875rem;
+      color: #8b949e;
+    }
+
+    /* Splits the page into its two subjects: the schedule above, the workflow
+       dashboard below. */
+    .section-break {
+      max-width: 900px;
+      margin: 2.5rem auto 2rem;
+      border: 0;
+      border-top: 1px solid #30363d;
+    }
+
+    /* Not a second <header>: there is only one page header, and this is the
+       second section's heading. It repeats header's own centering and spacing. */
+    .section-head {
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .section-head h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .section-head p {
       margin-top: 0.35rem;
       font-size: 0.875rem;
       color: #8b949e;
@@ -406,8 +434,7 @@
 <body>
 
 <header>
-  <h1>Dodgers Notifier — Workflow Runs</h1>
-  <p>Recent GitHub Actions runs for <a href="https://github.com/rjayasin/dodgers-notifier" style="color:#58a6ff;text-decoration:none">rjayasin/dodgers-notifier</a></p>
+  <h1>Dodgers Home Games</h1>
 </header>
 
 <div class="schedule-wrap" id="schedule-wrap" style="display:none">
@@ -427,6 +454,13 @@
   </div>
   <table class="schedule-table"><tbody id="schedule-body"></tbody></table>
   <div class="schedule-empty" id="schedule-empty" style="display:none"></div>
+</div>
+
+<hr class="section-break">
+
+<div class="section-head">
+  <h2>Workflow Runs</h2>
+  <p>Recent GitHub Actions runs for <a href="https://github.com/rjayasin/dodgers-notifier" style="color:#58a6ff;text-decoration:none">rjayasin/dodgers-notifier</a></p>
 </div>
 
 <div class="stat-bar" id="stats" style="display:none">
