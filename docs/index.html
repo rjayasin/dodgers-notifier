@@ -364,6 +364,43 @@
     .box-whisker { stroke: #8b949e; stroke-width: 1.25; }
     .box-median { stroke: #f0f6fc; stroke-width: 2; }
     .box-outlier { fill: #f85149; stroke: #0d1117; stroke-width: 1; }
+
+    /* A dot standing for a run is a link to it. The hit area is widened with a
+       transparent stroke rather than a bigger radius, so pointing at a dot is
+       forgiving without the dots visually crowding each other. */
+    .clickable {
+      cursor: pointer;
+      stroke: rgba(0, 0, 0, 0);
+      stroke-width: 10;
+      paint-order: stroke;
+    }
+
+    .clickable:hover, .clickable:focus-visible {
+      stroke: #f0f6fc;
+      stroke-width: 2.5;
+      outline: none;
+    }
+
+    /* Replaces SVG <title>: those take about a second to appear, can't be
+       styled, and give no hint that the dot is clickable. */
+    .chart-tip {
+      position: fixed;
+      z-index: 50;
+      pointer-events: none;
+      max-width: 260px;
+      padding: 0.5rem 0.65rem;
+      background: #1c2128;
+      border: 1px solid #444c56;
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(1, 4, 9, 0.85);
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: #e6edf3;
+    }
+
+    .tip-title { font-weight: 600; }
+    .tip-meta { color: #8b949e; }
+    .tip-meta .mono { color: #adbac7; }
   </style>
 </head>
 <body>
@@ -677,6 +714,103 @@
     }
   }
 
+  // ── Chart popover ────────────────────────────────────────────────
+  // One popover serves every chart. It follows the cursor rather than anchoring
+  // to the dot, so it never covers the neighbouring points you're comparing.
+
+  const chartTip = document.createElement('div');
+  chartTip.className = 'chart-tip';
+  chartTip.hidden = true;
+  document.body.appendChild(chartTip);
+
+  const esc = v => String(v).replace(/[&<>"]/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function placeTip(x, y) {
+    const GAP = 14;
+    const r = chartTip.getBoundingClientRect();
+    // Flip to the other side of the cursor near the right/bottom edge so the
+    // popover is never clipped by the viewport.
+    let left = x + GAP;
+    let top = y + GAP;
+    if (left + r.width > window.innerWidth - GAP) left = x - r.width - GAP;
+    if (top + r.height > window.innerHeight - GAP) top = y - r.height - GAP;
+    chartTip.style.left = `${Math.max(GAP, left)}px`;
+    chartTip.style.top = `${Math.max(GAP, top)}px`;
+  }
+
+  // Set while the popover is pinned to a focused dot rather than to the cursor.
+  let tipAnchor = null;
+
+  function showTip(html, x, y) {
+    tipAnchor = null;
+    chartTip.innerHTML = html;
+    chartTip.hidden = false;
+    placeTip(x, y);
+  }
+
+  // Pinned to the element, for keyboard focus: there is no cursor to follow.
+  function showTipFor(el, html) {
+    chartTip.innerHTML = html;
+    chartTip.hidden = false;
+    tipAnchor = el;
+    anchorTip();
+  }
+
+  function anchorTip() {
+    const r = tipAnchor.getBoundingClientRect();
+    placeTip(r.left + r.width / 2, r.bottom);
+  }
+
+  function hideTip() {
+    chartTip.hidden = true;
+    tipAnchor = null;
+  }
+
+  // The popover sits in viewport coordinates, so scrolling would strand it away
+  // from its dot. A focused dot keeps its popover and moves it instead —
+  // focusing a dot off-screen scrolls it into view, and hiding on that scroll
+  // would blank the popover the moment a keyboard user tabbed to it.
+  window.addEventListener('scroll', () => {
+    if (chartTip.hidden) return;
+    if (tipAnchor) anchorTip();
+    else hideTip();
+  }, { passive: true });
+
+  function runTipHtml(run, date) {
+    const day = date.toLocaleDateString(undefined,
+      { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const time = date.toLocaleTimeString(undefined,
+      { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    return `<div class="tip-title">${esc(day)}</div>`
+      + `<div class="tip-meta">${esc(time)} · ${esc(run.conclusion || run.status)}</div>`
+      + `<div class="tip-meta">${esc(run.name)} <span class="mono">#${esc(run.run_number)}</span></div>`;
+  }
+
+  // Show `html` on hover, and — when the element stands for a single run — open
+  // that run on click. Dots become real links: focusable, and Enter activates.
+  function attachTip(el, html, run) {
+    el.addEventListener('mouseenter', e => showTip(html, e.clientX, e.clientY));
+    el.addEventListener('mousemove', e => placeTip(e.clientX, e.clientY));
+    el.addEventListener('mouseleave', hideTip);
+
+    if (!run || !run.html_url) return;
+
+    el.classList.add('clickable');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'link');
+    el.setAttribute('aria-label', `${run.name} #${run.run_number}, ${run.conclusion || run.status} — open this run`);
+
+    const open = () => window.open(run.html_url, '_blank', 'noopener');
+    el.addEventListener('click', open);
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+    // Keyboard users get the same popover, anchored to the dot itself.
+    el.addEventListener('focus', () => showTipFor(el, html));
+    el.addEventListener('blur', hideTip);
+  }
+
   function renderChart(runs, opts) {
     const { workflowName, svgId, wrapId, cronUtcHour, cronUtcMinute, emptyLabel } = opts;
     const svg = document.getElementById(svgId);
@@ -837,14 +971,7 @@
       c.setAttribute('cy', yFor(p.minutes));
       c.setAttribute('r', 4);
       c.setAttribute('class', p.run.conclusion === 'success' ? 'point' : 'point point-fail');
-      const title = document.createElementNS(SVG_NS, 'title');
-      const t = p.date.toLocaleString(undefined, {
-        weekday: 'short',
-        month: 'short', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
-      });
-      title.textContent = `${t} — ${p.run.conclusion || p.run.status}`;
-      c.appendChild(title);
+      attachTip(c, runTipHtml(p.run, p.date), p.run);
       svg.appendChild(c);
     }
   }
@@ -884,9 +1011,11 @@
       return;
     }
 
+    // Grouped as whole runs, not bare minutes: an outlier dot is a link, so it
+    // has to know which run put it there.
     const groups = [[], [], [], [], [], [], []];
-    for (const d of deploys) groups[d.dayOfWeek].push(d.minutes);
-    for (const g of groups) g.sort((a, b) => a - b);
+    for (const d of deploys) groups[d.dayOfWeek].push(d);
+    for (const g of groups) g.sort((a, b) => a.minutes - b.minutes);
 
     const quantile = (sorted, q) => {
       const pos = (sorted.length - 1) * q;
@@ -899,16 +1028,17 @@
 
     const stats = groups.map(g => {
       if (!g.length) return null;
-      const q1 = quantile(g, 0.25);
-      const median = quantile(g, 0.5);
-      const q3 = quantile(g, 0.75);
+      const values = g.map(d => d.minutes);
+      const q1 = quantile(values, 0.25);
+      const median = quantile(values, 0.5);
+      const q3 = quantile(values, 0.75);
       const iqr = q3 - q1;
       const lowerFence = q1 - 1.5 * iqr;
       const upperFence = q3 + 1.5 * iqr;
-      const inliers = g.filter(v => v >= lowerFence && v <= upperFence);
-      const outliers = g.filter(v => v < lowerFence || v > upperFence);
-      const whiskerLo = inliers.length ? inliers[0] : g[0];
-      const whiskerHi = inliers.length ? inliers[inliers.length - 1] : g[g.length - 1];
+      const inliers = g.filter(d => d.minutes >= lowerFence && d.minutes <= upperFence);
+      const outliers = g.filter(d => d.minutes < lowerFence || d.minutes > upperFence);
+      const whiskerLo = (inliers.length ? inliers[0] : g[0]).minutes;
+      const whiskerHi = (inliers.length ? inliers[inliers.length - 1] : g[g.length - 1]).minutes;
       return { q1, median, q3, whiskerLo, whiskerHi, outliers, count: g.length };
     });
 
@@ -921,7 +1051,7 @@
     const allShown = [scheduledMinutes];
     for (const s of stats) {
       if (!s) continue;
-      allShown.push(s.whiskerLo, s.whiskerHi, ...s.outliers);
+      allShown.push(s.whiskerLo, s.whiskerHi, ...s.outliers.map(o => o.minutes));
     }
     const dataMin = Math.min(...allShown);
     const dataMax = Math.max(...allShown);
@@ -1041,13 +1171,11 @@
       box.setAttribute('width', boxW);
       box.setAttribute('height', Math.max(1, boxBottom - boxTop));
       box.setAttribute('class', 'box-rect');
-      const boxTitle = document.createElementNS(SVG_NS, 'title');
-      boxTitle.textContent =
-        `${dayNames[i]} — n=${s.count}\n` +
-        `median: ${fmtMins(s.median)}\n` +
-        `Q1: ${fmtMins(s.q1)} • Q3: ${fmtMins(s.q3)}\n` +
-        `min: ${fmtMins(s.whiskerLo)} • max: ${fmtMins(s.whiskerHi)}`;
-      box.appendChild(boxTitle);
+      attachTip(box,
+        `<div class="tip-title">${dayNames[i]} — ${s.count} run${s.count === 1 ? '' : 's'}</div>`
+        + `<div class="tip-meta">median <span class="mono">${fmtMins(s.median)}</span></div>`
+        + `<div class="tip-meta">Q1 <span class="mono">${fmtMins(s.q1)}</span> · Q3 <span class="mono">${fmtMins(s.q3)}</span></div>`
+        + `<div class="tip-meta">min <span class="mono">${fmtMins(s.whiskerLo)}</span> · max <span class="mono">${fmtMins(s.whiskerHi)}</span></div>`);
       svg.appendChild(box);
 
       const medLine = document.createElementNS(SVG_NS, 'line');
@@ -1058,15 +1186,13 @@
       medLine.setAttribute('class', 'box-median');
       svg.appendChild(medLine);
 
-      for (const v of s.outliers) {
+      for (const o of s.outliers) {
         const c = document.createElementNS(SVG_NS, 'circle');
         c.setAttribute('cx', cx);
-        c.setAttribute('cy', yFor(v));
+        c.setAttribute('cy', yFor(o.minutes));
         c.setAttribute('r', 3);
         c.setAttribute('class', 'box-outlier');
-        const ot = document.createElementNS(SVG_NS, 'title');
-        ot.textContent = `outlier: ${fmtMins(v)}`;
-        c.appendChild(ot);
+        attachTip(c, runTipHtml(o.run, new Date(o.run.updated_at)), o.run);
         svg.appendChild(c);
       }
     }

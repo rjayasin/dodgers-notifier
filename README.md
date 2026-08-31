@@ -100,6 +100,8 @@ Within a week, today's game is highlighted and games already played are greyed o
 
 **Workflow run stats and charts** below it are fetched live from the GitHub REST API in the browser; nothing about them is committed. The page covers the two notifier workflows named in `INCLUDED_WORKFLOWS` — Daily Check and Weekly Schedule — so site deploys, Pages builds and Keep Alive stay out of the charts and the run list. It's an include list rather than an exclude list because a new workflow should stay off the page until it's deliberately added. Manually triggered (`workflow_dispatch`) runs are filtered out in the same place, so they don't skew the completion-time charts.
 
+Every dot on the charts is a run: hovering shows its date, completion time and result, and clicking opens that run on GitHub in a new tab. The dots are focusable, so the same works from the keyboard with Tab and Enter. Hovering a box in the day-of-week plot shows that day's median, quartiles and range instead — it summarises many runs, so it isn't a link.
+
 Pages deploys on any push touching `docs/**`, and also when the weekly workflow completes — a push made with the workflow's `GITHUB_TOKEN` deliberately does not trigger `push` workflows, so the schedule commit needs that second trigger to reach the site.
 
 ---
