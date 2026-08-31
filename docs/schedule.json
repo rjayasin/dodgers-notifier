@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-31T01:30:37Z",
+  "generated_at": "2026-08-31T01:35:15Z",
   "weeks": [
     {
       "start": "2026-08-24",
@@ -49,6 +49,99 @@
           "opponent": "Washington Nationals"
         }
       ]
+    },
+    {
+      "start": "2026-09-07",
+      "end": "2026-09-13",
+      "range": "Sep 7–13",
+      "games": [
+        {
+          "date": "2026-09-07",
+          "day": "Mon 9/7",
+          "time": "6:10 PM",
+          "opponent": "Cincinnati Reds"
+        },
+        {
+          "date": "2026-09-08",
+          "day": "Tue 9/8",
+          "time": "7:10 PM",
+          "opponent": "Cincinnati Reds"
+        },
+        {
+          "date": "2026-09-09",
+          "day": "Wed 9/9",
+          "time": "7:10 PM",
+          "opponent": "Cincinnati Reds"
+        }
+      ]
+    },
+    {
+      "start": "2026-09-14",
+      "end": "2026-09-20",
+      "range": "Sep 14–20",
+      "games": [
+        {
+          "date": "2026-09-18",
+          "day": "Fri 9/18",
+          "time": "7:15 PM",
+          "opponent": "San Francisco Giants"
+        },
+        {
+          "date": "2026-09-19",
+          "day": "Sat 9/19",
+          "time": "6:10 PM",
+          "opponent": "San Francisco Giants"
+        },
+        {
+          "date": "2026-09-20",
+          "day": "Sun 9/20",
+          "time": "1:10 PM",
+          "opponent": "San Francisco Giants"
+        }
+      ]
+    },
+    {
+      "start": "2026-09-21",
+      "end": "2026-09-27",
+      "range": "Sep 21–27",
+      "games": [
+        {
+          "date": "2026-09-22",
+          "day": "Tue 9/22",
+          "time": "7:10 PM",
+          "opponent": "San Diego Padres"
+        },
+        {
+          "date": "2026-09-23",
+          "day": "Wed 9/23",
+          "time": "7:10 PM",
+          "opponent": "San Diego Padres"
+        },
+        {
+          "date": "2026-09-24",
+          "day": "Thu 9/24",
+          "time": "7:10 PM",
+          "opponent": "San Diego Padres"
+        }
+      ]
+    },
+    {
+      "start": "2026-09-28",
+      "end": "2026-10-04",
+      "range": "Sep 28–Oct 4",
+      "games": []
+    },
+    {
+      "start": "2026-10-05",
+      "end": "2026-10-11",
+      "range": "Oct 5–11",
+      "games": []
+    },
+    {
+      "start": "2026-10-12",
+      "end": "2026-10-18",
+      "range": "Oct 12–18",
+      "games": []
     }
   ]
 }

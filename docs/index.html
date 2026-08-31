@@ -51,10 +51,68 @@
       margin-bottom: 0.75rem;
     }
 
+    /* Title and arrows travel together, so the control sits with the week it
+       changes; "Updated ..." stays pinned to the far edge of the head. */
+    .schedule-headline {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      min-width: 0;
+    }
+
     .schedule-title {
       font-size: 0.875rem;
       font-weight: 600;
       color: #f0f6fc;
+    }
+
+    .schedule-nav {
+      display: flex;
+      gap: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    .schedule-arrow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.6rem;
+      height: 1.6rem;
+      padding: 0;
+      background: #21262d;
+      color: #adbac7;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .schedule-arrow svg {
+      width: 12px;
+      height: 12px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .schedule-arrow:hover:not(:disabled) {
+      background: #30363d;
+      border-color: #8b949e;
+      color: #f0f6fc;
+    }
+
+    .schedule-arrow:focus-visible {
+      outline: 2px solid #58a6ff;
+      outline-offset: 2px;
+    }
+
+    /* Kept in place rather than hidden at the ends of the published range, so
+       the row of controls doesn't reflow as you browse. */
+    .schedule-arrow:disabled {
+      opacity: 0.3;
+      cursor: default;
     }
 
     .schedule-updated {
@@ -92,6 +150,9 @@
       .schedule-head { gap: 0.15rem 1rem; margin-bottom: 0.6rem; }
 
       .schedule-title { font-size: 0.9375rem; }
+
+      .schedule-arrow { width: 2rem; height: 2rem; }
+      .schedule-arrow svg { width: 13px; height: 13px; }
 
       .schedule-table tr {
         display: grid;
@@ -311,7 +372,17 @@
 
 <div class="schedule-wrap" id="schedule-wrap" style="display:none">
   <div class="schedule-head">
-    <div class="schedule-title" id="schedule-title">Dodger Stadium home games</div>
+    <div class="schedule-headline">
+      <div class="schedule-title" id="schedule-title">Dodger Stadium home games</div>
+      <div class="schedule-nav">
+        <button type="button" class="schedule-arrow" id="schedule-prev" aria-label="Previous week">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 5 8l5.5 5.5"/></svg>
+        </button>
+        <button type="button" class="schedule-arrow" id="schedule-next" aria-label="Next week">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5 11 8l-5.5 5.5"/></svg>
+        </button>
+      </div>
+    </div>
     <div class="schedule-updated" id="schedule-updated"></div>
   </div>
   <table class="schedule-table"><tbody id="schedule-body"></tbody></table>
@@ -472,38 +543,65 @@
     }
   }
 
-  // The weekly run publishes the current week and the coming one. Show the week
-  // today falls in; only if a run was missed does neither match, and then the
-  // nearest week — upcoming if there is one, otherwise the most recent — stands in.
-  function pickWeek(weeks, today) {
-    return weeks.find(w => today >= w.start && today <= w.end)
-        || weeks.find(w => w.start > today)
-        || weeks[weeks.length - 1];
+  // The weekly run publishes several consecutive weeks starting with the current
+  // one. Open on the week today falls in; only if a run was missed does none
+  // match, and then the nearest week — upcoming if there is one, otherwise the
+  // most recent — stands in.
+  function pickWeekIndex(weeks, today) {
+    const i = weeks.findIndex(w => today >= w.start && today <= w.end);
+    if (i !== -1) return i;
+    const next = weeks.findIndex(w => w.start > today);
+    return next !== -1 ? next : weeks.length - 1;
+  }
+
+  // Which week the arrows are currently parked on, and the data behind them.
+  let scheduleWeeks = [];
+  let scheduleWeekIndex = 0;
+  let scheduleTodayIndex = -1;
+
+  function showWeek(index) {
+    scheduleWeekIndex = Math.max(0, Math.min(index, scheduleWeeks.length - 1));
+    renderWeek(scheduleWeeks[scheduleWeekIndex]);
+    document.getElementById('schedule-prev').disabled = scheduleWeekIndex === 0;
+    document.getElementById('schedule-next').disabled =
+      scheduleWeekIndex === scheduleWeeks.length - 1;
+  }
+
+  // "this week"/"next week" are only meaningful next to the week holding today;
+  // further out — and when a missed run leaves no such week at all — the date
+  // range in the heading has to carry it alone.
+  function weekWording(index) {
+    if (index === scheduleTodayIndex) return 'this week';
+    if (scheduleTodayIndex !== -1 && index === scheduleTodayIndex + 1) return 'next week';
+    return 'that week';
   }
 
   function renderSchedule(data) {
-    const week = pickWeek(data.weeks || [], todayPT());
-    if (!week) return;
+    scheduleWeeks = data.weeks || [];
+    if (!scheduleWeeks.length) return;
 
+    const today = todayPT();
+    scheduleTodayIndex = scheduleWeeks.findIndex(w => today >= w.start && today <= w.end);
+
+    document.getElementById('schedule-updated').textContent =
+      data.generated_at ? `Updated ${fmtDate(data.generated_at)}` : '';
+    document.getElementById('schedule-prev').onclick = () => showWeek(scheduleWeekIndex - 1);
+    document.getElementById('schedule-next').onclick = () => showWeek(scheduleWeekIndex + 1);
+
+    showWeek(pickWeekIndex(scheduleWeeks, today));
+    document.getElementById('schedule-wrap').style.display = '';
+  }
+
+  function renderWeek(week) {
     const games = week.games || [];
     const today = todayPT();
     const range = week.range ? ` (${week.range})` : '';
-
-    let heading, when;
-    if (today < week.start) {
-      heading = `Home games next week${range}`;
-      when = 'next week';
-    } else if (today > week.end) {
-      heading = `Home games${range}`;
-      when = 'that week';
-    } else {
-      heading = `Home games this week${range}`;
-      when = 'this week';
-    }
+    const when = weekWording(scheduleWeekIndex);
+    const heading = when === 'that week'
+      ? `Home games${range}`
+      : `Home games ${when}${range}`;
 
     document.getElementById('schedule-title').textContent = heading;
-    document.getElementById('schedule-updated').textContent =
-      data.generated_at ? `Updated ${fmtDate(data.generated_at)}` : '';
 
     const tbody = document.getElementById('schedule-body');
     const empty = document.getElementById('schedule-empty');
@@ -550,8 +648,6 @@
         tbody.appendChild(tr);
       }
     }
-
-    document.getElementById('schedule-wrap').style.display = '';
   }
 
   async function load() {

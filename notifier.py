@@ -16,6 +16,10 @@ MLB_SEASONS_URL = "https://statsapi.mlb.com/api/v1/seasons"
 PT = ZoneInfo("America/Los_Angeles")
 DASHBOARD_URL = "https://rjayasin.github.io/dodgers-notifier"
 DASHBOARD_LINK_TEXT = "See the full schedule and recent runs on the dashboard"
+# How many weeks docs/schedule.json publishes, starting from the current one.
+# The dashboard's arrows browse this many weeks forward; roughly two months is
+# far enough to plan around and still leaves the file a few KB.
+PUBLISHED_WEEKS = 8
 # The Pages dashboard reads this file; the weekly workflow commits it back to the repo.
 SCHEDULE_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "schedule.json")
 
@@ -251,21 +255,28 @@ def format_schedule_html(games: list[dict]) -> str:
     )
 
 
+def week_window(window_start: str) -> tuple[str, str]:
+    """The (first Monday, last Sunday) of the span docs/schedule.json covers."""
+    monday = datetime.strptime(window_start, "%Y-%m-%d").date()
+    last_sunday = monday + timedelta(days=7 * PUBLISHED_WEEKS - 1)
+    return window_start, last_sunday.strftime("%Y-%m-%d")
+
+
 def write_schedule_json(window_start: str, games: list[dict]) -> None:
     """Write docs/schedule.json — the home games behind the Pages dashboard.
 
-    Both the current week and the coming one are published, starting from the
-    Monday given in window_start. The dashboard shows whichever contains today,
-    so it spends the whole week on the current week rather than jumping ahead
-    the moment Sunday's run lands — and a missed run still leaves it a week to
-    fall back on.
+    PUBLISHED_WEEKS consecutive weeks are written, starting from the Monday
+    given in window_start. The dashboard opens on whichever contains today, so
+    it spends the whole week on the current week rather than jumping ahead the
+    moment Sunday's run lands — a missed run still leaves it a week to fall
+    back on — and its arrows browse the later weeks from there.
     """
     path = os.environ.get("SCHEDULE_JSON_PATH", SCHEDULE_JSON_PATH)
     entries = [schedule_entry(g) for g in games]
 
     monday = datetime.strptime(window_start, "%Y-%m-%d").date()
     weeks = []
-    for offset in (0, 7):
+    for offset in range(0, 7 * PUBLISHED_WEEKS, 7):
         start = (monday + timedelta(days=offset)).strftime("%Y-%m-%d")
         end = (monday + timedelta(days=offset + 6)).strftime("%Y-%m-%d")
         weeks.append({
@@ -283,22 +294,24 @@ def write_schedule_json(window_start: str, games: list[dict]) -> None:
     with open(path, "w") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
         f.write("\n")
-    counts = ", ".join(f"{w['range']}: {len(w['games'])}" for w in weeks)
-    print(f"Wrote {path} ({counts})")
+    total = sum(len(w["games"]) for w in weeks)
+    print(f"Wrote {path} ({len(weeks)} weeks from {weeks[0]['range']}, {total} home games)")
 
 
 def weekly() -> None:
     gmail_address, app_password, notify_email = load_config()
 
     start_date, end_date = get_week_range()
-    # The dashboard needs the current week too, so fetch from this week's Monday
-    # and let the email take its slice of the result.
+    # The dashboard browses weeks the email doesn't cover, so fetch the whole
+    # published window from this week's Monday and let the email take its slice.
     today = datetime.now(PT).date()
-    window_start = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
-    print(f"Fetching Dodgers schedule for {window_start} to {end_date}...")
+    window_start, window_end = week_window(
+        (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+    )
+    print(f"Fetching Dodgers schedule for {window_start} to {window_end}...")
 
     try:
-        data = fetch_schedule(startDate=window_start, endDate=end_date)
+        data = fetch_schedule(startDate=window_start, endDate=window_end)
     except Exception as e:
         print(f"Error fetching MLB schedule: {e}", file=sys.stderr)
         sys.exit(1)

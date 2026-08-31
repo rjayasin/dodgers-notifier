@@ -23,7 +23,7 @@ Everything lives in a single script, `notifier.py`, with two subcommands:
 3. All home games are collected and formatted into a **single email** — the game count and week range in the subject line, one line per game in the body.
 4. If there are **no home games that week**, you get a "No Dodgers home games this week" email instead.
 5. An **offseason gate** skips that email outside the MLB season (Opening Day through the postseason), so you aren't emailed "no games" all winter.
-6. The current week and the coming one are written to `docs/schedule.json` and committed back to `main` — that's what the [dashboard](#dashboard) shows at the top of the page. The file is written before the email branches, so the dashboard refreshes even on weeks that send no email.
+6. The next eight weeks are written to `docs/schedule.json` and committed back to `main` — that's what the [dashboard](#dashboard) shows at the top of the page. The file is written before the email branches, so the dashboard refreshes even on weeks that send no email.
 
 ### How delivery works
 
@@ -92,9 +92,11 @@ The weekly email is sent as both HTML and plain text. The HTML part renders the 
 }
 ```
 
-Two weeks are published — the current one and the coming one the email covers — and the dashboard shows whichever contains today. That keeps the card on the **current** week all week rather than jumping ahead the moment Sunday's run lands, and leaves a fallback week if a Sunday run is ever missed.
+Eight consecutive weeks are published, starting with the current one (`PUBLISHED_WEEKS` in `notifier.py`) — about two months of home games in roughly 3 KB. The card opens on the week containing today, so it stays on the **current** week all week rather than jumping ahead the moment Sunday's run lands, and a missed Sunday run still leaves it a week to fall back on.
 
-Within that week, today's game is highlighted and games already played are greyed out, both judged against the current Pacific date. Start times are pre-formatted in Pacific rather than rendered from a timestamp, so first pitch reads the same wherever the page is opened.
+The **‹ ›** arrows beside the heading step through the published weeks. They stop at both ends — the range starts at the current week, so there is nothing behind it — and the heading names the week it lands on: *this week*, *next week*, then the date range alone.
+
+Within a week, today's game is highlighted and games already played are greyed out, both judged against the current Pacific date. Start times are pre-formatted in Pacific rather than rendered from a timestamp, so first pitch reads the same wherever the page is opened.
 
 **Workflow run stats and charts** below it are fetched live from the GitHub REST API in the browser; nothing about them is committed. Manually triggered (`workflow_dispatch`) runs are excluded so they don't skew the completion-time charts.
 
