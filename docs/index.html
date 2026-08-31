@@ -1280,12 +1280,19 @@
     document.addEventListener(type, e => e.preventDefault(), { passive: false });
   }
 
-  const DOUBLE_TAP_MS = 350;
-  let lastTouchEnd = 0;
+  // Zoom needs the two taps close together, so a lone timer would also swallow
+  // quick taps on two different dots.
+  const DOUBLE_TAP_MS = 350, DOUBLE_TAP_PX = 40;
+  let lastTap = { t: 0, x: 0, y: 0 };
   document.addEventListener('touchend', e => {
+    const touch = e.changedTouches[0];
+    if (!touch) return;
     const now = Date.now();
-    if (now - lastTouchEnd <= DOUBLE_TAP_MS) e.preventDefault();
-    lastTouchEnd = now;
+    if (now - lastTap.t <= DOUBLE_TAP_MS
+        && Math.hypot(touch.clientX - lastTap.x, touch.clientY - lastTap.y) < DOUBLE_TAP_PX) {
+      e.preventDefault();
+    }
+    lastTap = { t: now, x: touch.clientX, y: touch.clientY };
   }, { passive: false });
 
   loadSchedule();
