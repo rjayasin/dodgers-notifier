@@ -51,13 +51,16 @@
       margin-bottom: 0.75rem;
     }
 
-    /* Title and arrows travel together, so the control sits with the week it
-       changes; "Updated ..." stays pinned to the far edge of the head. */
-    .schedule-headline {
+    /* The arrows sit at the far edge rather than beside the heading: the
+       heading changes width as you browse ("this week" vs a bare date range),
+       and arrows anchored to it would slide out from under the cursor between
+       clicks. "Updated ..." is fixed for the life of the page, so parking the
+       arrows outside it keeps them still. */
+    .schedule-meta {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-      min-width: 0;
+      gap: 0.75rem;
+      margin-left: auto;
     }
 
     .schedule-title {
@@ -372,8 +375,9 @@
 
 <div class="schedule-wrap" id="schedule-wrap" style="display:none">
   <div class="schedule-head">
-    <div class="schedule-headline">
-      <div class="schedule-title" id="schedule-title">Dodger Stadium home games</div>
+    <div class="schedule-title" id="schedule-title">Dodger Stadium home games</div>
+    <div class="schedule-meta">
+      <div class="schedule-updated" id="schedule-updated"></div>
       <div class="schedule-nav">
         <button type="button" class="schedule-arrow" id="schedule-prev" aria-label="Previous week">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 5 8l5.5 5.5"/></svg>
@@ -383,7 +387,6 @@
         </button>
       </div>
     </div>
-    <div class="schedule-updated" id="schedule-updated"></div>
   </div>
   <table class="schedule-table"><tbody id="schedule-body"></tbody></table>
   <div class="schedule-empty" id="schedule-empty" style="display:none"></div>
