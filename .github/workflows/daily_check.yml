@@ -6,7 +6,7 @@ on:
   workflow_dispatch:       # Allows manual trigger from the Actions tab
 
 permissions:
-  contents: write  # Commits the refreshed docs/runs.json back to main
+  contents: write  # Commits the refreshed docs/ dashboard data back to main
   actions: read    # Reads the run history that file is built from
 
 jobs:
@@ -29,6 +29,14 @@ jobs:
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
         run: python notifier.py daily
 
+      # The dashboard's schedule is republished every morning, not just on
+      # Sunday. A regular season is set months out and would be fine either way,
+      # but the postseason fills itself in a round at a time, and a weekly-only
+      # refresh would leave the page up to six days behind the bracket.
+      - name: Refresh home game schedule
+        if: ${{ !cancelled() }}
+        run: python notifier.py schedule
+
       # The dashboard's charts read docs/runs.json rather than calling the
       # GitHub API from the browser, so the history has to be accumulated here.
       # This run is still in flight and so records nothing about itself —
@@ -39,18 +47,27 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python notifier.py runs
 
-      - name: Commit run history for the dashboard
+      - name: Commit dashboard data
         if: ${{ !cancelled() }}
         run: |
-          # git status catches the first run too, when the file is still untracked.
-          if [ -z "$(git status --porcelain docs/runs.json)" ]; then
-            echo "No new runs — nothing to commit."
+          # git status catches the first run too, when the files are still untracked.
+          if [ -z "$(git status --porcelain docs/runs.json docs/schedule.json)" ]; then
+            echo "Nothing new — nothing to commit."
             exit 0
+          fi
+          # The two move on their own schedules — run history grows every day,
+          # the schedule only when the window rolls forward or the bracket does
+          # — so the message says which of them this commit is actually for.
+          message="Update run history and home game schedule"
+          if [ -z "$(git status --porcelain docs/schedule.json)" ]; then
+            message="Update workflow run history"
+          elif [ -z "$(git status --porcelain docs/runs.json)" ]; then
+            message="Update home game schedule"
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/runs.json
-          git commit -m "Update workflow run history"
+          git add docs/runs.json docs/schedule.json
+          git commit -m "$message"
           # The weekly run commits docs/schedule.json to the same branch; rebase
           # rather than fail if it landed between this checkout and this push.
           git pull --rebase --autostash

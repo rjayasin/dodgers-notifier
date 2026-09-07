@@ -29,7 +29,9 @@ jobs:
         run: python notifier.py weekly
 
       # The script writes docs/schedule.json before it emails, so publish the
-      # dashboard data even if the SMTP step failed.
+      # dashboard data even if the SMTP step failed. The daily run refreshes the
+      # same file, so most Sundays this finds it already current and commits
+      # nothing.
       - name: Commit schedule for the dashboard
         if: ${{ !cancelled() }}
         run: |
@@ -42,7 +44,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/schedule.json
           git commit -m "Update weekly home game schedule"
-          # The daily run commits docs/runs.json to the same branch; rebase
+          # The daily run commits into docs/ on the same branch; rebase
           # rather than fail if it landed between this checkout and this push.
           git pull --rebase --autostash
           git push

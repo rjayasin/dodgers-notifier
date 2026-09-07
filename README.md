@@ -6,7 +6,7 @@ A GitHub Actions automation that emails you about upcoming Dodgers home games �
 
 ## How It Works
 
-Everything lives in a single script, `notifier.py`, with three subcommands:
+Everything lives in a single script, `notifier.py`, with four subcommands:
 
 ### Daily check (`python notifier.py daily`)
 
@@ -15,7 +15,7 @@ Everything lives in a single script, `notifier.py`, with three subcommands:
 3. It checks whether any game is a **home game at Dodger Stadium** — it verifies both the home team ID (119) and venue ID (22) to correctly exclude neutral-site games like the London or Tokyo Series.
 4. Postponed games are skipped automatically. Double-headers trigger one email per game.
 5. If a home game is found, the script **sends an email** with the opponent and first pitch time.
-6. The same workflow then runs `notifier.py runs` and commits `docs/runs.json` back to `main`, so the [dashboard](#dashboard)'s charts gain a day of history. This runs whether or not an email went out.
+6. The same workflow then runs `notifier.py schedule` and `notifier.py runs` and commits `docs/schedule.json` and `docs/runs.json` back to `main`, so the [dashboard](#dashboard) picks up any change to the schedule and its charts gain a day of history. Both run whether or not an email went out.
 
 ### Weekly schedule (`python notifier.py weekly`)
 
@@ -23,8 +23,15 @@ Everything lives in a single script, `notifier.py`, with three subcommands:
 2. The script fetches the Dodgers schedule for the upcoming Monday–Sunday week.
 3. All home games are collected and formatted into a **single email** — the game count and week range in the subject line, one line per game in the body.
 4. If there are **no home games that week**, you get a "No Dodgers home games this week" email instead.
-5. An **offseason gate** skips that email outside the MLB season (Opening Day through the postseason), so you aren't emailed "no games" all winter.
+5. An **offseason gate** skips that email outside the season, so you aren't emailed "no games" all winter. Through the regular season the gate is the calendar; after it, the gate is whether the Dodgers themselves are still on the schedule — see [Postseason](#postseason).
 6. The next eight weeks are written to `docs/schedule.json` and committed back to `main` — that's what the [dashboard](#dashboard) shows at the top of the page. The file is written before the email branches, so the dashboard refreshes even on weeks that send no email.
+
+### Schedule refresh (`python notifier.py schedule`)
+
+1. The **Daily Check workflow** runs this every morning, right after the game check.
+2. It does the `weekly` command's schedule half and nothing else: fetch the eight-week window, write `docs/schedule.json`, send no email.
+3. If the file it would write matches the one already committed, it leaves the file alone, so an unchanged schedule costs no commit and no site redeploy.
+4. This is what keeps the dashboard current through October, when the schedule changes daily — see [Postseason](#postseason).
 
 ### Run history (`python notifier.py runs`)
 
@@ -48,6 +55,10 @@ No paid services, no third-party accounts — just a Gmail account and GitHub.
 >
 > Dodgers home game at 7:10 PM PT vs Kansas City Royals
 
+If MLB hasn't announced first pitch yet — which happens in the [postseason](#postseason), never in the regular season — the time drops out rather than being guessed at:
+
+> **⚾ Dodgers home game vs Philadelphia Phillies (start time TBD)**
+
 **Weekly schedule** — the game count and week range in the subject, one line per game in the body, closing with a link to the [dashboard](https://rjayasin.github.io/dodgers-notifier):
 
 > **⚾ 7 Dodgers home games this week (Aug 10–16)**
@@ -66,13 +77,33 @@ No paid services, no third-party accounts — just a Gmail account and GitHub.
 
 The weekly email is sent as both HTML and plain text. The HTML part renders the schedule as a table so the columns line up in a proportional font; the plain-text part pads them to line up in a monospace client. Start times are Pacific.
 
-**Weekly schedule, no home games** — sent only during the season:
+**Weekly schedule, no home games** — sent only while the Dodgers' season is live (see [Postseason](#postseason)):
 
 > **⚾ No Dodgers home games this week (Aug 10–16)**
 >
 > No Dodgers home games this week (Aug 10–16).
 >
 > See the full schedule and recent runs on the dashboard
+
+---
+
+## Postseason
+
+October is the one stretch where the schedule stops behaving like a schedule. The regular season is published months ahead, every game has a start time, and every game gets played. The postseason is assigned a round at a time, start times land days late, and a series that ends early takes its remaining games off the calendar. The notifier's job is to absorb all of that so the emails and the dashboard read the same in October as they do in June.
+
+**Playoff games are just home games.** Nothing filters on game type, and postseason games at Dodger Stadium come back from the same schedule endpoint, so the daily alert fires for a World Series game exactly as it does for a Tuesday in June.
+
+**The dashboard refreshes daily, not weekly.** `notifier.py schedule` runs every morning. A weekly-only refresh was fine when the schedule was set months out, but it would leave the page up to six days behind a bracket that resolves round by round.
+
+**Start times that MLB hasn't set read as `TBD`** rather than as the placeholder just after midnight that the API carries until the time is announced.
+
+**Games that may not be played are marked, not counted.** MLB posts every game of a series up front and drops the ones the series ends without needing. Those carry an *if necessary* tag on the dashboard and in the weekly email, and the subject line counts them separately — `⚾ 2 Dodgers home games this week, 2 if necessary (Oct 5–11)` — so a week that promises four games and plays two isn't something you find out afterwards.
+
+**An empty week says which kind of empty it is.** In June "No Dodgers home games this week" means they're on the road. In October it usually means the bracket hasn't reached them yet, and the dashboard says so instead: *Dodgers postseason games this week aren't set yet.*
+
+**The weekly "no home games" email ends with the Dodgers' season, not the league's.** MLB holds a team's bracket slots only while they're alive, so once they're eliminated the empty weeks stop being weeks worth emailing about, and the email stops with them rather than running through a World Series they aren't in. The trade is the few hours between a series ending and the next round being assigned: a Sunday run landing in that gap reads the season as over and stays quiet for the week, which the daily check still covers game by game.
+
+**The unassigned bracket never leaks in.** Before the field is set, MLB publishes the postseason as placeholder games — "NL Wild Card #1" at "NL Stadium" — and both the team and venue checks throw them out.
 
 > **Why not SMS?** Earlier versions texted via carrier email-to-SMS gateways (e.g. `@vtext.com`). Carriers are shutting those gateways down — Verizon retires `vtext.com`/`vzwpix.com` by March 31, 2027, and delivery is already unreliable, with messages arriving late, out of order, or not at all. Email is dependable and has no length limits. To get phone notifications, enable push notifications in the Gmail app for the recipient address (a Gmail filter can label these emails so you can create a distinct alert for them).
 
@@ -82,7 +113,7 @@ The weekly email is sent as both HTML and plain text. The HTML part renders the 
 
 [rjayasin.github.io/dodgers-notifier](https://rjayasin.github.io/dodgers-notifier) is a static page served from `docs/` by the **Deploy GitHub Pages** workflow.
 
-**Home game schedule** (top of the page) comes from `docs/schedule.json`, which `python notifier.py weekly` writes and the weekly workflow commits back to `main`:
+**Home game schedule** (top of the page) comes from `docs/schedule.json`, which `python notifier.py schedule` writes every morning and `python notifier.py weekly` writes again on Sundays, committed back to `main` by whichever workflow wrote it:
 
 ```json
 {
@@ -100,6 +131,10 @@ The weekly email is sent as both HTML and plain text. The HTML part renders the 
   ]
 }
 ```
+
+Two keys only ever appear in the [postseason](#postseason). A game gets `"if_necessary": true` when the series may end before reaching it, and a week gets `"pending": true` when it holds no Dodgers games at all because the bracket hasn't been assigned that far yet — which is what lets the card say *aren't set yet* rather than *no home games*. A start time MLB hasn't announced is written as the string `"TBD"`.
+
+The file is only rewritten when the weeks it would hold have actually changed. Rewriting it daily would bump `generated_at` alone, and since the workflow commits on any diff, that would redeploy the site every morning for nothing.
 
 Eight consecutive weeks are published, starting with the current one (`PUBLISHED_WEEKS` in `notifier.py`) — about two months of home games in roughly 3 KB. The card opens on the week containing today, so it stays on the **current** week all week rather than jumping ahead the moment Sunday's run lands, and a missed Sunday run still leaves it a week to fall back on.
 
@@ -138,7 +173,7 @@ The charts draw the whole history; the table below them lists the most recent `T
 
 Every dot on the charts is a run: hovering shows its date, completion time and result, and clicking opens that run on GitHub in a new tab. The dots are focusable, so the same works from the keyboard with Tab and Enter. Hovering a box in the day-of-week plot shows that day's median, quartiles and range instead — it summarises many runs, so it isn't a link.
 
-Pages deploys on any push touching `docs/**`, and also when **either** cron workflow completes — a push made with a workflow's `GITHUB_TOKEN` deliberately does not trigger `push` workflows, so the weekly schedule commit and the daily run-history commit both need that second trigger to reach the site.
+Pages deploys on any push touching `docs/**`, and also when **either** cron workflow completes — a push made with a workflow's `GITHUB_TOKEN` deliberately does not trigger `push` workflows, so the daily commit and the Sunday one both need that second trigger to reach the site.
 
 ---
 
@@ -212,6 +247,12 @@ GITHUB_TOKEN=$(gh auth token) python notifier.py runs
 ```
 
 Point it somewhere harmless with `RUNS_JSON_PATH=/tmp/runs.json` to see what it would write without touching `docs/`.
+
+**Preview the dashboard's schedule locally:** `notifier.py schedule` needs no credentials at all, and `SCHEDULE_JSON_PATH` keeps it out of `docs/`.
+
+```bash
+SCHEDULE_JSON_PATH=/tmp/schedule.json python notifier.py schedule
+```
 
 ---
 

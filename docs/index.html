@@ -217,6 +217,19 @@
       font-weight: 500;
     }
 
+    /* Muted rather than gold: this one qualifies the row, it doesn't flag it. */
+    .if-necessary-tag {
+      display: inline-block;
+      margin-left: 0.5rem;
+      padding: 0.1em 0.5em;
+      border-radius: 999px;
+      background: #21262d;
+      color: #8b949e;
+      font-size: 0.7rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
     .schedule-empty {
       font-size: 0.875rem;
       color: #8b949e;
@@ -673,7 +686,12 @@
     tbody.innerHTML = '';
 
     if (!games.length) {
-      empty.textContent = `No Dodgers home games ${when}.`;
+      // An empty week in June means the Dodgers are away; an empty one in
+      // October usually means the bracket hasn't reached them. schedule.json
+      // marks which, so the card doesn't promise an empty week either way.
+      empty.textContent = week.pending
+        ? `Dodgers postseason games ${when} aren't set yet.`
+        : `No Dodgers home games ${when}.`;
       empty.style.display = '';
     } else {
       empty.style.display = 'none';
@@ -708,6 +726,13 @@
         const opponent = document.createElement('td');
         opponent.className = 'schedule-opponent';
         opponent.append(vs, g.opponent);
+        // Set only on postseason games a short series would leave unplayed.
+        if (g.if_necessary) {
+          const tag = document.createElement('span');
+          tag.className = 'if-necessary-tag';
+          tag.textContent = 'if necessary';
+          opponent.appendChild(tag);
+        }
 
         tr.append(day, time, opponent);
         tbody.appendChild(tr);
