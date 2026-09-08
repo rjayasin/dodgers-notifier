@@ -1,49 +1,6 @@
 {
-  "generated_at": "2026-09-07T00:45:48Z",
+  "generated_at": "2026-09-08T17:40:13Z",
   "weeks": [
-    {
-      "start": "2026-08-31",
-      "end": "2026-09-06",
-      "range": "Aug 31–Sep 6",
-      "games": [
-        {
-          "date": "2026-09-01",
-          "day": "Tue 9/1",
-          "time": "7:10 PM",
-          "opponent": "St. Louis Cardinals"
-        },
-        {
-          "date": "2026-09-02",
-          "day": "Wed 9/2",
-          "time": "7:10 PM",
-          "opponent": "St. Louis Cardinals"
-        },
-        {
-          "date": "2026-09-03",
-          "day": "Thu 9/3",
-          "time": "7:10 PM",
-          "opponent": "St. Louis Cardinals"
-        },
-        {
-          "date": "2026-09-04",
-          "day": "Fri 9/4",
-          "time": "7:10 PM",
-          "opponent": "Washington Nationals"
-        },
-        {
-          "date": "2026-09-05",
-          "day": "Sat 9/5",
-          "time": "6:10 PM",
-          "opponent": "Washington Nationals"
-        },
-        {
-          "date": "2026-09-06",
-          "day": "Sun 9/6",
-          "time": "7:10 PM",
-          "opponent": "Washington Nationals"
-        }
-      ]
-    },
     {
       "start": "2026-09-07",
       "end": "2026-09-13",
@@ -123,25 +80,36 @@
       "start": "2026-09-28",
       "end": "2026-10-04",
       "range": "Sep 28–Oct 4",
-      "games": []
+      "games": [],
+      "pending": true
     },
     {
       "start": "2026-10-05",
       "end": "2026-10-11",
       "range": "Oct 5–11",
-      "games": []
+      "games": [],
+      "pending": true
     },
     {
       "start": "2026-10-12",
       "end": "2026-10-18",
       "range": "Oct 12–18",
-      "games": []
+      "games": [],
+      "pending": true
     },
     {
       "start": "2026-10-19",
       "end": "2026-10-25",
       "range": "Oct 19–25",
-      "games": []
+      "games": [],
+      "pending": true
+    },
+    {
+      "start": "2026-10-26",
+      "end": "2026-11-01",
+      "range": "Oct 26–Nov 1",
+      "games": [],
+      "pending": true
     }
   ]
 }
