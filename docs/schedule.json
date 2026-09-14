@@ -1,31 +1,6 @@
 {
-  "generated_at": "2026-09-08T17:40:13Z",
+  "generated_at": "2026-09-14T18:57:15Z",
   "weeks": [
-    {
-      "start": "2026-09-07",
-      "end": "2026-09-13",
-      "range": "Sep 7–13",
-      "games": [
-        {
-          "date": "2026-09-07",
-          "day": "Mon 9/7",
-          "time": "6:10 PM",
-          "opponent": "Cincinnati Reds"
-        },
-        {
-          "date": "2026-09-08",
-          "day": "Tue 9/8",
-          "time": "7:10 PM",
-          "opponent": "Cincinnati Reds"
-        },
-        {
-          "date": "2026-09-09",
-          "day": "Wed 9/9",
-          "time": "7:10 PM",
-          "opponent": "Cincinnati Reds"
-        }
-      ]
-    },
     {
       "start": "2026-09-14",
       "end": "2026-09-20",
@@ -110,6 +85,12 @@
       "range": "Oct 26–Nov 1",
       "games": [],
       "pending": true
+    },
+    {
+      "start": "2026-11-02",
+      "end": "2026-11-08",
+      "range": "Nov 2–8",
+      "games": []
     }
   ]
 }
