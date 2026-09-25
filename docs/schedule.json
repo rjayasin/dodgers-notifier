@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-21T18:58:39Z",
+  "generated_at": "2026-09-25T18:08:48Z",
   "weeks": [
     {
       "start": "2026-09-21",
@@ -30,15 +30,34 @@
       "start": "2026-09-28",
       "end": "2026-10-04",
       "range": "Sep 28–Oct 4",
-      "games": [],
-      "pending": true
+      "games": [
+        {
+          "date": "2026-10-03",
+          "day": "Sat 10/3",
+          "time": "TBD",
+          "opponent": "NL 3/6 Winner"
+        },
+        {
+          "date": "2026-10-04",
+          "day": "Sun 10/4",
+          "time": "TBD",
+          "opponent": "NL 3/6 Winner"
+        }
+      ]
     },
     {
       "start": "2026-10-05",
       "end": "2026-10-11",
       "range": "Oct 5–11",
-      "games": [],
-      "pending": true
+      "games": [
+        {
+          "date": "2026-10-09",
+          "day": "Fri 10/9",
+          "time": "TBD",
+          "opponent": "NL 3/6 Winner",
+          "if_necessary": true
+        }
+      ]
     },
     {
       "start": "2026-10-12",
