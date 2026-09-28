@@ -1,31 +1,6 @@
 {
-  "generated_at": "2026-09-28T01:27:17Z",
+  "generated_at": "2026-09-28T20:19:31Z",
   "weeks": [
-    {
-      "start": "2026-09-21",
-      "end": "2026-09-27",
-      "range": "Sep 21–27",
-      "games": [
-        {
-          "date": "2026-09-22",
-          "day": "Tue 9/22",
-          "time": "7:10 PM",
-          "opponent": "San Diego Padres"
-        },
-        {
-          "date": "2026-09-23",
-          "day": "Wed 9/23",
-          "time": "7:10 PM",
-          "opponent": "San Diego Padres"
-        },
-        {
-          "date": "2026-09-24",
-          "day": "Thu 9/24",
-          "time": "7:10 PM",
-          "opponent": "San Diego Padres"
-        }
-      ]
-    },
     {
       "start": "2026-09-28",
       "end": "2026-10-04",
@@ -90,6 +65,12 @@
       "start": "2026-11-09",
       "end": "2026-11-15",
       "range": "Nov 9–15",
+      "games": []
+    },
+    {
+      "start": "2026-11-16",
+      "end": "2026-11-22",
+      "range": "Nov 16–22",
       "games": []
     }
   ]
