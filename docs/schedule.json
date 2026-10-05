@@ -1,25 +1,6 @@
 {
-  "generated_at": "2026-10-02T18:49:29Z",
+  "generated_at": "2026-10-05T21:18:09Z",
   "weeks": [
-    {
-      "start": "2026-09-28",
-      "end": "2026-10-04",
-      "range": "Sep 28–Oct 4",
-      "games": [
-        {
-          "date": "2026-10-03",
-          "day": "Sat 10/3",
-          "time": "1:00 PM",
-          "opponent": "Atlanta Braves"
-        },
-        {
-          "date": "2026-10-04",
-          "day": "Sun 10/4",
-          "time": "5:00 PM",
-          "opponent": "Atlanta Braves"
-        }
-      ]
-    },
     {
       "start": "2026-10-05",
       "end": "2026-10-11",
@@ -71,6 +52,12 @@
       "start": "2026-11-16",
       "end": "2026-11-22",
       "range": "Nov 16–22",
+      "games": []
+    },
+    {
+      "start": "2026-11-23",
+      "end": "2026-11-29",
+      "range": "Nov 23–29",
       "games": []
     }
   ]
