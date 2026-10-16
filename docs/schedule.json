@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-15T17:55:50Z",
+  "generated_at": "2026-10-16T17:44:26Z",
   "weeks": [
     {
       "start": "2026-10-12",
@@ -17,13 +17,6 @@
           "day": "Thu 10/15",
           "time": "5:00 PM",
           "opponent": "Milwaukee Brewers"
-        },
-        {
-          "date": "2026-10-16",
-          "day": "Fri 10/16",
-          "time": "6:00 PM",
-          "opponent": "Milwaukee Brewers",
-          "if_necessary": true
         }
       ]
     },
@@ -37,8 +30,7 @@
       "start": "2026-10-26",
       "end": "2026-11-01",
       "range": "Oct 26–Nov 1",
-      "games": [],
-      "pending": true
+      "games": []
     },
     {
       "start": "2026-11-02",
