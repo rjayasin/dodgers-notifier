@@ -1,7 +1,27 @@
 {
-  "generated_at": "2026-10-25T17:19:05Z",
+  "generated_at": "2026-10-26T19:39:37Z",
   "repo": "rjayasin/dodgers-notifier",
   "runs": [
+    {
+      "id": 40252198055,
+      "name": "Dodgers Weekly Schedule",
+      "run_number": 34,
+      "event": "schedule",
+      "status": "completed",
+      "conclusion": "success",
+      "run_started_at": "2026-10-26T01:02:00Z",
+      "updated_at": "2026-10-26T01:02:09Z"
+    },
+    {
+      "id": 40215858108,
+      "name": "Dodgers Daily Check",
+      "run_number": 202,
+      "event": "schedule",
+      "status": "completed",
+      "conclusion": "success",
+      "run_started_at": "2026-10-25T17:18:53Z",
+      "updated_at": "2026-10-25T17:19:10Z"
+    },
     {
       "id": 40114579754,
       "name": "Dodgers Daily Check",
