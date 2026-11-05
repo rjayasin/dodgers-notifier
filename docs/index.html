@@ -485,7 +485,7 @@
 
 <div class="chart-wrap" id="chart-wrap-deploy-box" style="display:none">
   <div class="chart-title">Daily Check completion time by day of week</div>
-  <div class="chart-sub">Distribution of <span class="mono">Dodgers Daily Check</span> completion times grouped by weekday (local time)</div>
+  <div class="chart-sub">Distribution of <span class="mono">Dodgers Daily Check</span> completion times grouped by weekday (local time, on today's schedule: runs from before a daylight-saving change are shifted by the hour it moved)</div>
   <svg id="chart-deploy-box" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
@@ -866,6 +866,15 @@
     el.addEventListener('blur', hideTip);
   }
 
+  // Local minutes-since-midnight at which a fixed-UTC cron fires on the local
+  // calendar day of `date`. The cron doesn't move, the viewer's clock does, so
+  // this answer changes across a daylight-saving switch: 7:00 PDT, 6:00 PST.
+  function cronLocalMinutes(date, cronUtcHour, cronUtcMinute) {
+    const fire = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(),
+                                   cronUtcHour, cronUtcMinute));
+    return { minutes: fire.getHours() * 60 + fire.getMinutes(), fire };
+  }
+
   function renderChart(runs, opts) {
     const { workflowName, svgId, wrapId, cronUtcHour, cronUtcMinute, emptyLabel } = opts;
     const svg = document.getElementById(svgId);
@@ -902,18 +911,31 @@
     const maxDay = dayKeys[dayKeys.length - 1];
     const daySpan = Math.max(1, maxDay - minDay);
 
-    // Scheduled cron runs at a fixed UTC time; convert to the viewer's local
-    // minutes-since-midnight so the horizontal line aligns with the y-axis.
-    const schedRef = new Date();
-    schedRef.setUTCHours(cronUtcHour, cronUtcMinute, 0, 0);
-    const scheduledMinutes = schedRef.getHours() * 60 + schedRef.getMinutes();
+    // The cron fires at a fixed UTC time, so its local time moves whenever the
+    // viewer's clock does: 7:00 PDT through the season, 6:00 PST after the
+    // November change. One line placed by today's offset put a whole season of
+    // 7:00 runs against a 6:00 line, so the line is worked out day by day and
+    // drawn as a step wherever the local time changes.
+    const schedSegments = [];
+    for (const d = new Date(minDay); d.getTime() <= maxDay; d.setDate(d.getDate() + 1)) {
+      const { minutes, fire } = cronLocalMinutes(d, cronUtcHour, cronUtcMinute);
+      const last = schedSegments[schedSegments.length - 1];
+      if (last && last.minutes === minutes) {
+        last.endDay = d.getTime();
+      } else {
+        const zone = fire.toLocaleTimeString(undefined, { timeZoneName: 'short' })
+          .split(' ').pop();
+        schedSegments.push({ startDay: d.getTime(), endDay: d.getTime(), minutes, zone });
+      }
+    }
+    const schedMins = schedSegments.map(s => s.minutes);
 
     // Auto-scale y to the actual range of completion times so day-to-day
     // variance is visible instead of squashed into a 24h band. Pick a "nice"
     // tick step that yields ~5-7 gridlines, and snap bounds outward to it.
     const mins = points.map(p => p.minutes);
-    const dataMin = Math.min(...mins, scheduledMinutes);
-    const dataMax = Math.max(...mins, scheduledMinutes);
+    const dataMin = Math.min(...mins, ...schedMins);
+    const dataMax = Math.max(...mins, ...schedMins);
     const dataRange = Math.max(1, dataMax - dataMin);
     const padMins = Math.max(5, Math.ceil(dataRange * 0.1));
     const lo = Math.max(0, dataMin - padMins);
@@ -1009,23 +1031,35 @@
       svg.appendChild(label);
     }
 
-    // Horizontal line at the scheduled cron time
-    const schedY = yFor(scheduledMinutes);
-    const schedLine = document.createElementNS(SVG_NS, 'line');
-    schedLine.setAttribute('x1', PAD.left);
-    schedLine.setAttribute('x2', W - PAD.right);
-    schedLine.setAttribute('y1', schedY);
-    schedLine.setAttribute('y2', schedY);
-    schedLine.setAttribute('class', 'sched-line');
-    svg.appendChild(schedLine);
+    // Scheduled cron time, one horizontal run per offset. The step sits halfway
+    // between the last day on the old offset and the first on the new, so each
+    // run's dot sits over the line that applied to it. With more than one
+    // segment the labels name the zone too, which is what changed.
+    const HALF_DAY = 12 * 3600 * 1000;
+    const schedPath = [];
+    const schedLabels = [];
+    schedSegments.forEach((s, i) => {
+      const x1 = i === 0 ? PAD.left : xFor(s.startDay - HALF_DAY);
+      const x2 = i === schedSegments.length - 1 ? W - PAD.right : xFor(s.endDay + HALF_DAY);
+      const y = yFor(s.minutes);
+      schedPath.push(`${i === 0 ? 'M' : 'L'}${x1},${y}`, `L${x2},${y}`);
 
-    const schedLabel = document.createElementNS(SVG_NS, 'text');
-    schedLabel.setAttribute('x', W - PAD.right - 4);
-    schedLabel.setAttribute('y', schedY - 4);
-    schedLabel.setAttribute('text-anchor', 'end');
-    schedLabel.setAttribute('class', 'sched-label');
-    schedLabel.textContent = `scheduled ${fmtMins(scheduledMinutes)}`;
-    svg.appendChild(schedLabel);
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', x2 - 4);
+      label.setAttribute('y', y - 4);
+      label.setAttribute('text-anchor', 'end');
+      label.setAttribute('class', 'sched-label');
+      label.textContent = schedSegments.length > 1
+        ? `scheduled ${fmtMins(s.minutes)} ${s.zone}`
+        : `scheduled ${fmtMins(s.minutes)}`;
+      schedLabels.push(label);
+    });
+    const schedLine = document.createElementNS(SVG_NS, 'path');
+    schedLine.setAttribute('d', schedPath.join(' '));
+    schedLine.setAttribute('class', 'sched-line');
+    schedLine.setAttribute('fill', 'none');
+    svg.appendChild(schedLine);
+    for (const label of schedLabels) svg.appendChild(label);
 
     // Points
     for (const p of points) {
@@ -1050,14 +1084,25 @@
     svg.innerHTML = '';
     document.getElementById('chart-wrap-deploy-box').style.display = '';
 
+    // One box pools months of runs, which can straddle a daylight-saving
+    // switch: a 7:00 PDT schedule all season, 6:00 PST after it. Plotted as
+    // read off the clock, each box mixed the two, and one scheduled line could
+    // only be right for half of them. Each run is shifted by however far its
+    // own day's schedule sits from today's, so every box measures the same
+    // thing, time on the current schedule, against the one line drawn.
+    const scheduledMinutes =
+      cronLocalMinutes(new Date(), DAILY_CRON_UTC_HOUR, DAILY_CRON_UTC_MINUTE).minutes;
     const deploys = runs
       .filter(r => r.name === 'Dodgers Daily Check'
                 && r.status === 'completed'
                 && r.updated_at)
       .map(r => {
         const d = new Date(r.updated_at);
+        const ownSchedule =
+          cronLocalMinutes(d, DAILY_CRON_UTC_HOUR, DAILY_CRON_UTC_MINUTE).minutes;
         return {
-          minutes: d.getHours() * 60 + d.getMinutes(),
+          minutes: d.getHours() * 60 + d.getMinutes() - ownSchedule + scheduledMinutes,
+          shifted: ownSchedule !== scheduledMinutes,
           dayOfWeek: d.getDay(),
           run: r,
         };
@@ -1104,12 +1149,6 @@
       const whiskerHi = (inliers.length ? inliers[inliers.length - 1] : g[g.length - 1]).minutes;
       return { q1, median, q3, whiskerLo, whiskerHi, outliers, count: g.length };
     });
-
-    // Scheduled cron runs at a fixed UTC time; convert to the viewer's local
-    // minutes-since-midnight so the horizontal line aligns with the y-axis.
-    const schedRef = new Date();
-    schedRef.setUTCHours(DAILY_CRON_UTC_HOUR, DAILY_CRON_UTC_MINUTE, 0, 0);
-    const scheduledMinutes = schedRef.getHours() * 60 + schedRef.getMinutes();
 
     const allShown = [scheduledMinutes];
     for (const s of stats) {
@@ -1255,7 +1294,10 @@
         c.setAttribute('cy', yFor(o.minutes));
         c.setAttribute('r', 3);
         c.setAttribute('class', 'box-outlier');
-        attachTip(c, runTipHtml(o.run, new Date(o.run.updated_at)), o.run);
+        const note = o.shifted
+          ? `<div class="tip-meta">plotted at <span class="mono">${fmtMins(o.minutes)}</span> on today's schedule</div>`
+          : '';
+        attachTip(c, runTipHtml(o.run, new Date(o.run.updated_at)) + note, o.run);
         svg.appendChild(c);
       }
     }

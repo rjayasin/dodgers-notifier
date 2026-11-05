@@ -173,6 +173,8 @@ The charts draw the whole history; the table below them lists the most recent `T
 
 Every dot on the charts is a run: hovering shows its date, completion time and result, and clicking opens that run on GitHub in a new tab. The dots are focusable, so the same works from the keyboard with Tab and Enter. Hovering a box in the day-of-week plot shows that day's median, quartiles and range instead — it summarises many runs, so it isn't a link.
 
+The dashed **scheduled** line follows daylight saving. The crons are fixed in UTC, so the daily check is due at 7:00 AM PDT for most of the season and 6:00 AM PST after the November change. The two time-series charts draw that line as a step, labelled with the zone on each side. The day-of-week plot pools runs from both sides of the change, so it shifts each run by however far its own day's schedule sits from today's, then measures every box against the one current line. Its outlier popovers give the real completion time along with where the dot was plotted.
+
 Pages deploys on any push touching `docs/**`, and also when **either** cron workflow completes — a push made with a workflow's `GITHUB_TOKEN` deliberately does not trigger `push` workflows, so the daily commit and the Sunday one both need that second trigger to reach the site.
 
 ---
