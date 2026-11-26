@@ -25,6 +25,25 @@
     header {
       max-width: 900px;
       margin: 0 auto 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+    }
+
+    .repo-link {
+      font-size: 0.875rem;
+      color: #58a6ff;
+      text-decoration: none;
+    }
+
+    .repo-link:hover { text-decoration: underline; }
+
+    .repo-link:focus-visible {
+      outline: 2px solid #58a6ff;
+      outline-offset: 2px;
+      border-radius: 2px;
     }
 
     header h1 {
@@ -431,6 +450,7 @@
 
 <header>
   <h1>Dodgers Home Games</h1>
+  <a class="repo-link" href="https://github.com/rjayasin/dodgers-notifier">View on GitHub</a>
 </header>
 
 <div class="schedule-wrap" id="schedule-wrap" style="display:none">
